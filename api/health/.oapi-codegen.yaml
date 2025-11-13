@@ -1,0 +1,3 @@
+package: health
+generate: types,server,spec
+output: generated.go

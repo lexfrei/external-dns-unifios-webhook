@@ -1,0 +1,78 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Health and Metrics API
+  description: >-
+    Health checks and Prometheus metrics endpoints for the external-dns UniFi webhook.
+  license:
+    name: BSD-3-Clause
+    url: https://opensource.org/licenses/BSD-3-Clause
+servers:
+  - url: http://localhost:8080
+    description: Health and metrics server (accessible from pod for probes)
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      description: |
+        Returns 200 OK if the service is alive and running.
+      operationId: liveness
+      tags: [health]
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '500':
+          description: Service is not healthy
+
+  /readyz:
+    get:
+      summary: Readiness probe
+      description: |
+        Returns 200 OK if the service is ready to accept traffic.
+      operationId: readiness
+      tags: [health]
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Service is not ready
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: |
+        Returns Prometheus metrics in text format.
+      operationId: metrics
+      tags: [metrics]
+      responses:
+        '200':
+          description: Metrics exported successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP go_info Information about the Go environment.
+                  # TYPE go_info gauge
+                  go_info{version="go1.25.4"} 1
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          example: ok
+        message:
+          type: string
+          example: Service is healthy
