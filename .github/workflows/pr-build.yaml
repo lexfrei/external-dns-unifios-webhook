@@ -198,16 +198,16 @@ jobs:
               repo: context.repo.repo,
               body: `✅ Container image is now available!
 
-**Image:** \`ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\`
+**Image:** \\\`ghcr.io/${context.repo.owner}/${context.repo.repo}:pr-${context.issue.number}\\\`
 
 **Platforms:** linux/amd64, linux/arm64
 
 **Note:** This image will be automatically rebuilt on every commit to this PR. You can always pull the latest version using the command below.
 
 **Pull command:**
-\`\`\`bash
-docker pull ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
-\`\`\``
+\\\`\\\`\\\`bash
+docker pull ghcr.io/${context.repo.owner}/${context.repo.repo}:pr-${context.issue.number}
+\\\`\\\`\\\``
             })
 
   # Clean up PR image when PR is closed
