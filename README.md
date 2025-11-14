@@ -93,15 +93,17 @@ Deploy external-dns with this webhook provider using the official external-dns H
 
 3. Create `values.yaml` with webhook configuration:
 
-This is the Helm values configuration for the external-dns chart. The `provider.webhook` section configures the webhook sidecar container that communicates with your UniFi controller:
-
 ```yaml
+# This is a minimal configuration snippet for the webhook provider.
+# You are responsible for configuring other external-dns values according to your needs
+# (e.g., domainFilters, policy, interval, sources, etc.).
+# See https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns for all options.
 provider:
   name: webhook
   webhook:
     image:
       repository: ghcr.io/lexfrei/external-dns-unifios-webhook
-      tag: latest
+      tag: latest  # Recommended: pin to a specific version (e.g., v1.0.0)
     env:
       - name: WEBHOOK_UNIFI_API_KEY
         valueFrom:
@@ -155,48 +157,6 @@ provider:
 | `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
 | `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
 | `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
-
-### External-DNS Configuration
-
-Configure external-dns behavior in your Helm values:
-
-| Parameter       | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| `domainFilters`| List of domains that external-dns will manage                    |
-| `policy`       | Use `sync` to auto create/delete records, `upsert-only` to only create |
-
-For additional configuration options, see the [external-dns Helm chart documentation](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
-
-## ✅ Verification
-
-Check that the webhook is running correctly:
-
-```bash
-# View webhook logs
-kubectl logs -n external-dns-unifi deployment/external-dns-unifi -c webhook
-
-# Check external-dns logs
-kubectl logs -n external-dns-unifi deployment/external-dns-unifi -c external-dns
-```
-
-Test DNS record creation with a sample Service:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: test-service
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: test.example.com
-spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
-  selector:
-    app: test
-```
-
-Verify the DNS record was created in your UniFi controller web interface under **Settings → Networks → DNS**.
 
 ## 💻 Development
 
