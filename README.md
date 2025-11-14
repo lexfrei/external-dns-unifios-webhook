@@ -1,8 +1,12 @@
 # external-dns-unifios-webhook
 
+<div align="center">
+
 [![Go Version](https://img.shields.io/badge/go-1.25.4-blue.svg)](https://golang.org/dl/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/lexfrei/external-dns-unifios-webhook/ci.yml?branch=master)](https://github.com/lexfrei/external-dns-unifios-webhook/actions)
+[![GitHub Release](https://img.shields.io/github/v/release/lexfrei/external-dns-unifios-webhook)](https://github.com/lexfrei/external-dns-unifios-webhook/releases)
+
+</div>
 
 Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-dns) that integrates with UniFi OS DNS management. Enables automatic DNS record management in UniFi controllers (UniFi Dream Machine, Cloud Key, etc.) from Kubernetes.
 
@@ -16,7 +20,13 @@ Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-
 - OpenTelemetry instrumentation
 - Lightweight container image built from scratch
 
-## Requirements
+## 🎯 Requirements
+
+### Minimum Versions
+
+- ExternalDNS >= **v0.20.0**
+- UniFi OS >= **4.3.9**
+- UniFi Network >= **9.4.19**
 
 ### UniFi Controller
 
@@ -27,24 +37,46 @@ Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-
 ### Creating UniFi API Key
 
 1. Log in to UniFi controller web interface
-2. Navigate to Settings → Admins
+2. Navigate to **Settings → Admins**
 3. Select your admin user
-4. Scroll to "API Access" section
+4. Scroll to **API Access** section
 5. Generate new API key
 6. Save the key securely (shown only once)
+
+**Important:** The API key inherits permissions from the admin user account. Ensure the user has sufficient privileges to manage DNS records.
 
 ### Optional
 
 - Kubernetes cluster with external-dns deployed
 - Prometheus for metrics collection
 
-## Installation
+## 🚫 Limitations
+
+UniFi uses [dnsmasq](https://dnsmasq.org) as the backend for its DNS resolver. This project is subject to dnsmasq limitations.
+
+**Unsupported configurations:**
+
+- Wildcard CNAME records
+  ```
+  *.example.com  IN CNAME  target.example.com  # NOT SUPPORTED
+  ```
+
+- Duplicate CNAME records
+  ```
+  app.example.com  IN CNAME  internal.example.com
+  app.example.com  IN CNAME  external.example.com  # NOT SUPPORTED
+  ```
+
+If you encounter issues with DNS record creation, verify your configuration against these limitations.
+
+## 🚀 Installation
 
 ### Kubernetes with Helm
 
 Deploy external-dns with this webhook provider using the official external-dns Helm chart.
 
 **Prerequisites:**
+
 1. Add external-dns Helm repository:
    ```bash
    helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
@@ -61,15 +93,17 @@ Deploy external-dns with this webhook provider using the official external-dns H
 
 3. Create `values.yaml` with webhook configuration:
 
-This is the Helm values configuration for the external-dns chart. The `provider.webhook` section configures the webhook sidecar container that communicates with your UniFi controller:
-
 ```yaml
+# This is a minimal configuration snippet for the webhook provider.
+# You are responsible for configuring other external-dns values according to your needs
+# (e.g., domainFilters, policy, interval, sources, etc.).
+# See https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns for all options.
 provider:
   name: webhook
   webhook:
     image:
       repository: ghcr.io/lexfrei/external-dns-unifios-webhook
-      tag: latest
+      tag: latest  # Recommended: pin to a specific version (e.g., v1.0.0)
     env:
       - name: WEBHOOK_UNIFI_API_KEY
         valueFrom:
@@ -92,7 +126,7 @@ provider:
       periodSeconds: 10
 ```
 
-1. Deploy external-dns with the webhook:
+4. Deploy external-dns with the webhook:
 
    ```bash
    helm upgrade --install external-dns-unifi external-dns/external-dns \
@@ -100,32 +134,31 @@ provider:
      --values values.yaml
    ```
 
-**Webhook configuration options:**
+## ⚙️ Configuration
 
-Required:
+### Webhook Configuration
 
-- `WEBHOOK_UNIFI_HOST`: UniFi controller URL (use IP address, not hostname like unifi.local)
-- `WEBHOOK_UNIFI_API_KEY`: API key from UniFi controller (stored in Kubernetes secret)
+#### Required Parameters
 
-Optional:
+| Environment Variable      | Description                                                          |
+|--------------------------|----------------------------------------------------------------------|
+| `WEBHOOK_UNIFI_HOST`     | UniFi controller URL (use IP address, not hostname like unifi.local) |
+| `WEBHOOK_UNIFI_API_KEY`  | API key from UniFi controller (stored in Kubernetes secret)          |
 
-- `WEBHOOK_UNIFI_SITE`: UniFi site name (default: `default`)
-- `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`: Skip TLS certificate verification (default: `true`)
-- `WEBHOOK_SERVER_HOST`: Webhook server bind address (default: `localhost`)
-- `WEBHOOK_SERVER_PORT`: Webhook server port (default: `8888`)
-- `WEBHOOK_HEALTH_HOST`: Health server bind address (default: `localhost`)
-- `WEBHOOK_HEALTH_PORT`: Health server port (default: `8080`)
-- `WEBHOOK_LOGGING_LEVEL`: Log level - `debug`, `info`, `warn`, `error` (default: `info`)
-- `WEBHOOK_LOGGING_FORMAT`: Log format - `json` or `text` (default: `json`)
+#### Optional Parameters
 
-**External-DNS configuration options:**
+| Environment Variable            | Description                                      | Default     |
+|--------------------------------|--------------------------------------------------|-------------|
+| `WEBHOOK_UNIFI_SITE`           | UniFi site name                                  | `default`   |
+| `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`| Skip TLS certificate verification                | `true`      |
+| `WEBHOOK_SERVER_HOST`          | Webhook server bind address                      | `localhost` |
+| `WEBHOOK_SERVER_PORT`          | Webhook server port                              | `8888`      |
+| `WEBHOOK_HEALTH_HOST`          | Health server bind address                       | `localhost` |
+| `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
+| `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
+| `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
 
-- `domainFilters`: List of domains that external-dns will manage
-- `policy`: Use `sync` to automatically create/delete records, or `upsert-only` to only create
-
-For additional configuration options, see the [external-dns Helm chart documentation](https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns)
-
-## Development
+## 💻 Development
 
 ### Build
 
