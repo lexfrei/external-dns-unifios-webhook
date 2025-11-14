@@ -95,12 +95,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract README description
+        id: readme
+        run: |
+          DESCRIPTION=$(sed -n '7p' README.md | sed 's/\[//' | sed 's/\]([^)]*)//g')
+          echo "description=${DESCRIPTION}" >> "$GITHUB_OUTPUT"
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: type=ref,event=pr
+          labels: |
+            org.opencontainers.image.description=${{ steps.readme.outputs.description }}
 
       - name: Build and Push by Digest
         id: build
@@ -155,12 +163,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract README description
+        id: readme
+        run: |
+          DESCRIPTION=$(sed -n '7p' README.md | sed 's/\[//' | sed 's/\]([^)]*)//g')
+          echo "description=${DESCRIPTION}" >> "$GITHUB_OUTPUT"
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: type=ref,event=pr
+          labels: |
+            org.opencontainers.image.description=${{ steps.readme.outputs.description }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
