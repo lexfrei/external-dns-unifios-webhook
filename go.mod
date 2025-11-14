@@ -6,7 +6,7 @@ require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/lexfrei/go-unifi/api/network v0.0.2
+	github.com/lexfrei/go-unifi/api/network v0.0.3
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/viper v1.21.0
@@ -50,6 +50,7 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lexfrei/go-unifi/internal v0.0.1 // indirect
+	github.com/lexfrei/go-unifi/observability v0.0.1 // indirect
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
