@@ -4,7 +4,6 @@
 
 [![Go Version](https://img.shields.io/badge/go-1.25.4-blue.svg)](https://golang.org/dl/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/lexfrei/external-dns-unifios-webhook/pr.yaml?branch=master)](https://github.com/lexfrei/external-dns-unifios-webhook/actions)
 [![GitHub Release](https://img.shields.io/github/v/release/lexfrei/external-dns-unifios-webhook)](https://github.com/lexfrei/external-dns-unifios-webhook/releases)
 
 </div>
@@ -44,7 +43,7 @@ Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-
 5. Generate new API key
 6. Save the key securely (shown only once)
 
-**Important:** The API key requires **Site Admin** permissions for DNS record management.
+**Important:** The API key inherits permissions from the admin user account. Ensure the user has sufficient privileges to manage DNS records.
 
 ### Optional
 
