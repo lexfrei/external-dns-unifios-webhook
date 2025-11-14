@@ -270,7 +270,15 @@ jobs:
             exit 0
           fi
 
-          echo "🗑️  Deleting image version ${VERSION_ID} with tag ${TAG}"
+          # Check if this is the last version (GitHub doesn't allow deleting the last tagged version)
+          TOTAL_VERSIONS=$(gh api --paginate "/users/${OWNER}/packages/container/${PACKAGE}/versions" --jq 'length')
+          if [ "${TOTAL_VERSIONS}" -eq 1 ]; then
+            echo "ℹ️  Skipping deletion: ${TAG} is the last version in the package"
+            echo "Package will be cleaned up when a new version is pushed"
+            exit 0
+          fi
+
+          echo "🗑️  Deleting image version ${VERSION_ID} with tag ${TAG} (${TOTAL_VERSIONS} total versions)"
           if gh api --method DELETE --silent "/users/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"; then
             echo "✅ Successfully deleted image ${TAG}"
           else
