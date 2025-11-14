@@ -1,18 +1,22 @@
-name: Release
+name: PR Container Build
 
 on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
-  packages: write
+  pull_request_target:
+    types: [labeled, closed]
 
 jobs:
+  # Build and push image (requires approval, maintainer only)
   build-and-push:
     name: Build and Push
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'build-container'
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -22,10 +26,10 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     steps:
-      - name: Checkout code
+      - name: Checkout PR
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Prepare platform identifier
         id: platform
@@ -48,11 +52,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+          tags: type=ref,event=pr
 
       - name: Build and Push by Digest
         id: build
@@ -83,10 +83,18 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Merge all digests into multi-arch manifest
   merge-manifests:
     name: Merge Manifests
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'build-container'
     runs-on: ubuntu-latest
     needs: build-and-push
+    permissions:
+      packages: write
+      pull-requests: write
     steps:
       - name: Download digests
         uses: actions/download-artifact@v6
@@ -110,11 +118,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+          tags: type=ref,event=pr
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -136,31 +140,84 @@ jobs:
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
 
       - name: Generate build summary
         run: |
-          IMAGE_TAG="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+          IMAGE_TAG="ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}"
           MANIFEST_DIGEST=$(docker buildx imagetools inspect "${IMAGE_TAG}" --format '{{.Manifest.Digest}}')
 
           {
-            echo "## 🚀 Release Container Image Built"
+            echo "## 🚀 PR Container Image Built"
             echo ""
-            echo "### 📦 Image Tags"
-            echo "\`\`\`"
-            echo "$DOCKER_METADATA_OUTPUT_TAGS"
-            echo "\`\`\`"
+            echo "### 📦 Image Tag"
+            echo "- \`${IMAGE_TAG}\`"
             echo ""
             echo "### 🏗️ Platforms"
             docker buildx imagetools inspect "${IMAGE_TAG}" --format '{{range .Manifest.Manifests}}- {{.Platform.OS}}/{{.Platform.Architecture}}{{if .Platform.Variant}}/{{.Platform.Variant}}{{end}}{{"\n"}}{{end}}'
             echo ""
             echo "### 📋 Manifest Digest"
             echo "\`${MANIFEST_DIGEST}\`"
+            echo ""
+            echo "### 📥 Pull Command"
+            echo '```bash'
+            echo "docker pull ${IMAGE_TAG}"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Comment on PR
+        uses: actions/github-script@v8
         with:
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Container image built and pushed successfully!\n\n**Image:** \`ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\`\n\n**Platforms:** linux/amd64, linux/arm64\n\n**Pull command:**\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\n\`\`\``
+            })
+
+      - name: Remove build-container label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'build-container'
+            })
+
+  # Clean up PR image when PR is closed
+  cleanup-pr-image:
+    name: Cleanup PR Image
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PR container image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          PACKAGE="${{ github.event.repository.name }}"
+          TAG="pr-${{ github.event.pull_request.number }}"
+
+          echo "🔍 Looking for image with tag: ${TAG}"
+
+          # Find version ID for this PR tag
+          VERSION_ID=$(gh api --paginate "/users/${OWNER}/packages/container/${PACKAGE}/versions" \
+            --jq ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id")
+
+          if [ -z "${VERSION_ID}" ]; then
+            echo "✅ No image found with tag ${TAG}"
+            exit 0
+          fi
+
+          echo "🗑️  Deleting image version ${VERSION_ID} with tag ${TAG}"
+          if gh api --method DELETE --silent "/users/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"; then
+            echo "✅ Successfully deleted image ${TAG}"
+          else
+            echo "❌ Failed to delete image ${TAG}"
+            exit 1
+          fi
