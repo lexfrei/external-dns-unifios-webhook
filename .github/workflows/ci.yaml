@@ -83,7 +83,7 @@ jobs:
           go build -ldflags="-s -w" -trimpath -o webhook-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/webhook/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: webhook-${{ matrix.goos }}-${{ matrix.goarch }}
           path: webhook-${{ matrix.goos }}-${{ matrix.goarch }}
