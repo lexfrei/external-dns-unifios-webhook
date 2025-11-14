@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   build-and-push:
@@ -138,6 +139,20 @@ jobs:
         run: |
           docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ github.ref_name }}
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign container images
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          # Sign all tags created by metadata-action
+          mapfile -t tags < <(echo "$DOCKER_METADATA_OUTPUT_TAGS" | tr '\n' ' ' | xargs -n1)
+          for tag in "${tags[@]}"; do
+            echo "Signing ${tag}"
+            cosign sign --yes "${tag}"
+          done
+
       - name: Generate build summary
         run: |
           IMAGE_TAG="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
@@ -156,6 +171,14 @@ jobs:
             echo ""
             echo "### 📋 Manifest Digest"
             echo "\`${MANIFEST_DIGEST}\`"
+            echo ""
+            echo "### 🔐 Signature"
+            echo "Image is signed with cosign using keyless signing (Sigstore)"
+            echo ""
+            echo "**Verify signature:**"
+            echo "\`\`\`bash"
+            echo "cosign verify ${IMAGE_TAG} --certificate-identity-regexp=https://github.com/${{ github.repository }} --certificate-oidc-issuer=https://token.actions.githubusercontent.com"
+            echo "\`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create GitHub Release
