@@ -81,6 +81,9 @@ jobs:
           file: ./Containerfile
           platforms: ${{ matrix.platform }}
           push: false
+          build-args: |
+            VERSION=${{ github.sha }}
+            REVISION=${{ github.sha }}
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest

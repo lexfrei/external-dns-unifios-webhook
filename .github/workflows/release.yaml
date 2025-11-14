@@ -52,6 +52,9 @@ jobs:
           file: ./Containerfile
           platforms: ${{ matrix.platform }}
           push: true
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            REVISION=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
