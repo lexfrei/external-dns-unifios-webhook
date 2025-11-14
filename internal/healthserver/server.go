@@ -6,18 +6,21 @@ import (
 
 	"github.com/lexfrei/external-dns-unifios-webhook/api/health"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server implements the health.ServerInterface for health checks and metrics.
 type Server struct {
 	provider *provider.UniFiProvider
+	registry *prometheus.Registry
 }
 
-// New creates a new health server instance.
-func New(prov *provider.UniFiProvider) *Server {
+// New creates a new health server instance with a custom Prometheus registry.
+func New(prov *provider.UniFiProvider, registry *prometheus.Registry) *Server {
 	return &Server{
 		provider: prov,
+		registry: registry,
 	}
 }
 
@@ -75,7 +78,7 @@ func (s *Server) Readiness(w http.ResponseWriter, r *http.Request) {
 // Metrics exports Prometheus metrics.
 // GET /metrics.
 func (s *Server) Metrics(w http.ResponseWriter, r *http.Request) {
-	// Use prometheus handler directly
-	handler := promhttp.Handler()
+	// Use custom prometheus registry with our metrics
+	handler := promhttp.HandlerFor(s.registry, promhttp.HandlerOpts{})
 	handler.ServeHTTP(w, r)
 }

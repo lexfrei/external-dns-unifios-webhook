@@ -17,8 +17,11 @@ import (
 	"github.com/lexfrei/external-dns-unifios-webhook/api/webhook"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/healthserver"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/observability"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/webhookserver"
+	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/external-dns/endpoint"
 )
 
@@ -48,14 +51,24 @@ func run() error {
 		"webhook_addr", fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
 		"health_addr", fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port))
 
+	// Create Prometheus registry for custom metrics
+	registry := prometheus.NewRegistry()
+
+	// Register custom DNS metrics
+	metrics.Register(registry)
+
+	// Create observability components
+	logger := observability.NewSlogAdapter(slog.Default())
+	metricsRecorder := observability.NewPrometheusRecorder(registry, "external_dns_unifi")
+
 	// Create domain filter
 	domainFilter := endpoint.NewDomainFilterWithExclusions(
 		cfg.DomainFilter.Filters,
 		cfg.DomainFilter.ExcludeFilters,
 	)
 
-	// Create UniFi provider
-	prov, err := provider.New(cfg.UniFi, *domainFilter)
+	// Create UniFi provider with observability
+	prov, err := provider.New(cfg.UniFi, *domainFilter, logger, metricsRecorder)
 	if err != nil {
 		return errors.Wrap(err, "failed to create provider")
 	}
@@ -87,8 +100,8 @@ func run() error {
 		Handler: webhookRouter,
 	}
 
-	// Create health server
-	healthSrv := healthserver.New(prov)
+	// Create health server with custom registry
+	healthSrv := healthserver.New(prov, registry)
 	healthRouter := chi.NewRouter()
 	healthRouter.Use(middleware.Logger)
 	healthRouter.Use(middleware.Recoverer)

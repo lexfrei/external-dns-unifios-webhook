@@ -3,10 +3,13 @@ package provider
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
 	unifi "github.com/lexfrei/go-unifi/api/network"
+	"github.com/lexfrei/go-unifi/observability"
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
 )
@@ -20,14 +23,16 @@ type UniFiProvider struct {
 	domainFilter endpoint.DomainFilter
 }
 
-// New creates a new UniFiProvider instance.
-func New(cfg config.UniFiConfig, domainFilter endpoint.DomainFilter) (*UniFiProvider, error) {
+// New creates a new UniFiProvider instance with observability support.
+func New(cfg config.UniFiConfig, domainFilter endpoint.DomainFilter, logger observability.Logger, metricsRecorder observability.MetricsRecorder) (*UniFiProvider, error) {
 	// Create UniFi API client using the official constructor
 	// This properly configures the base URL with /proxy/network prefix and API key authentication
 	client, err := unifi.NewWithConfig(&unifi.ClientConfig{
 		ControllerURL:      cfg.Host,
 		APIKey:             cfg.APIKey,
 		InsecureSkipVerify: cfg.SkipTLSVerify,
+		Logger:             logger,
+		Metrics:            metricsRecorder,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create UniFi API client")
@@ -59,6 +64,8 @@ func (p *UniFiProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, erro
 	// Convert UniFi DNS records to endpoints
 	var endpoints []*endpoint.Endpoint
 
+	recordsByType := make(map[string]int)
+
 	for _, record := range records {
 		// Skip records that don't match the domain filter
 		if !p.domainFilter.Match(record.Key) {
@@ -68,7 +75,13 @@ func (p *UniFiProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, erro
 		endpointRecord := p.unifiToEndpoint(&record)
 		if endpointRecord != nil {
 			endpoints = append(endpoints, endpointRecord)
+			recordsByType[endpointRecord.RecordType]++
 		}
+	}
+
+	// Update metrics for managed records by type
+	for recordType, count := range recordsByType {
+		metrics.DNSRecordsManaged.WithLabelValues(recordType).Set(float64(count))
 	}
 
 	slog.InfoContext(ctx, "fetched DNS records", "filtered_count", len(endpoints))
@@ -83,35 +96,35 @@ func (p *UniFiProvider) ApplyChanges(ctx context.Context, changes *plan.Changes)
 		"update", len(changes.UpdateNew),
 		"delete", len(changes.Delete))
 
+	// Record number of changes
+	if len(changes.Delete) > 0 {
+		metrics.DNSChangesApplied.WithLabelValues("delete").Observe(float64(len(changes.Delete)))
+	}
+
+	if len(changes.UpdateNew) > 0 {
+		metrics.DNSChangesApplied.WithLabelValues("update").Observe(float64(len(changes.UpdateNew)))
+	}
+
+	if len(changes.Create) > 0 {
+		metrics.DNSChangesApplied.WithLabelValues("create").Observe(float64(len(changes.Create)))
+	}
+
 	// Handle deletions
-	for _, endpointToDelete := range changes.Delete {
-		err := p.deleteRecord(ctx, endpointToDelete)
-		if err != nil {
-			return errors.Wrapf(err, "failed to delete record %s", endpointToDelete.DNSName)
-		}
+	err := p.applyDeletions(ctx, changes.Delete)
+	if err != nil {
+		return err
 	}
 
-	// Handle updates (delete old, create new)
-	for _, oldEndpoint := range changes.UpdateOld {
-		err := p.deleteRecord(ctx, oldEndpoint)
-		if err != nil {
-			return errors.Wrapf(err, "failed to delete old record %s", oldEndpoint.DNSName)
-		}
-	}
-
-	for _, newEndpoint := range changes.UpdateNew {
-		err := p.createRecord(ctx, newEndpoint)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create updated record %s", newEndpoint.DNSName)
-		}
+	// Handle updates
+	err = p.applyUpdates(ctx, changes.UpdateOld, changes.UpdateNew)
+	if err != nil {
+		return err
 	}
 
 	// Handle creations
-	for _, endpointToCreate := range changes.Create {
-		err := p.createRecord(ctx, endpointToCreate)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create record %s", endpointToCreate.DNSName)
-		}
+	err = p.applyCreations(ctx, changes.Create)
+	if err != nil {
+		return err
 	}
 
 	slog.InfoContext(ctx, "successfully applied DNS changes")
@@ -130,6 +143,77 @@ func (p *UniFiProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endp
 //nolint:ireturn // Required by external-dns provider interface
 func (p *UniFiProvider) GetDomainFilter() endpoint.DomainFilterInterface {
 	return &p.domainFilter
+}
+
+//nolint:dupl // applyDeletions and applyCreations are similar but handle different operations
+func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	for _, endpointToDelete := range endpoints {
+		start := time.Now()
+
+		err := p.deleteRecord(ctx, endpointToDelete)
+		if err != nil {
+			metrics.DNSOperationsTotal.WithLabelValues("delete", "error").Inc()
+
+			return errors.Wrapf(err, "failed to delete record %s", endpointToDelete.DNSName)
+		}
+
+		metrics.DNSOperationsTotal.WithLabelValues("delete", "success").Inc()
+		metrics.DNSOperationDuration.WithLabelValues("delete").Observe(time.Since(start).Seconds())
+	}
+
+	return nil
+}
+
+func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpoints []*endpoint.Endpoint) error {
+	// Delete old records
+	for _, oldEndpoint := range oldEndpoints {
+		start := time.Now()
+
+		err := p.deleteRecord(ctx, oldEndpoint)
+		if err != nil {
+			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
+
+			return errors.Wrapf(err, "failed to delete old record %s", oldEndpoint.DNSName)
+		}
+
+		metrics.DNSOperationDuration.WithLabelValues("update").Observe(time.Since(start).Seconds())
+	}
+
+	// Create new records
+	for _, newEndpoint := range newEndpoints {
+		start := time.Now()
+
+		err := p.createRecord(ctx, newEndpoint)
+		if err != nil {
+			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
+
+			return errors.Wrapf(err, "failed to create updated record %s", newEndpoint.DNSName)
+		}
+
+		metrics.DNSOperationsTotal.WithLabelValues("update", "success").Inc()
+		metrics.DNSOperationDuration.WithLabelValues("update").Observe(time.Since(start).Seconds())
+	}
+
+	return nil
+}
+
+//nolint:dupl // applyCreations and applyDeletions are similar but handle different operations
+func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	for _, endpointToCreate := range endpoints {
+		start := time.Now()
+
+		err := p.createRecord(ctx, endpointToCreate)
+		if err != nil {
+			metrics.DNSOperationsTotal.WithLabelValues("create", "error").Inc()
+
+			return errors.Wrapf(err, "failed to create record %s", endpointToCreate.DNSName)
+		}
+
+		metrics.DNSOperationsTotal.WithLabelValues("create", "success").Inc()
+		metrics.DNSOperationDuration.WithLabelValues("create").Observe(time.Since(start).Seconds())
+	}
+
+	return nil
 }
 
 // unifiToEndpoint converts a UniFi DNS record to an endpoint.
