@@ -10,7 +10,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/viper v1.21.0
-	sigs.k8s.io/external-dns v0.19.0
+	sigs.k8s.io/external-dns v0.20.0
 )
 
 require (
