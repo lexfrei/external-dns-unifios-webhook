@@ -40,3 +40,5 @@ temp/
 
 # Deployment files
 deploy/
+
+# Test automation v2 - result-encoding fix
