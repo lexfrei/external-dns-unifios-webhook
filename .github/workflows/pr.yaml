@@ -219,7 +219,7 @@ jobs:
             });
 
             const hasLabel = labels.data.some(label => label.name === 'Container Available');
-            return hasLabel ? 'false' : 'true';
+            core.setOutput('result', hasLabel ? 'false' : 'true');
 
       - name: Add Container Available label
         if: steps.first_build.outputs.result == 'true'
