@@ -1,21 +1,70 @@
-name: PR Container Build
+name: PR Checks and Build
 
 on:
-  pull_request:
-    types: [opened, synchronize]
   pull_request_target:
-    types: [closed]
+    types: [opened, synchronize, closed]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
 
 jobs:
-  # Build and push image automatically on every PR and commit
+  # Fast checks: linting and tests
+  lint:
+    name: Lint
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
+
+  test:
+    name: Test
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
+  # Build containers only after lint and test succeed
   build-and-push:
     name: Build and Push
-    if: github.event_name == 'pull_request'
+    if: github.event.action != 'closed'
+    needs: [lint, test]
     runs-on: ${{ matrix.runner }}
-    permissions:
-      contents: read
-      packages: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +74,7 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     steps:
-      - name: Checkout PR
+      - name: Checkout PR code
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -85,12 +134,9 @@ jobs:
   # Merge all digests into multi-arch manifest
   merge-manifests:
     name: Merge Manifests
-    if: github.event_name == 'pull_request'
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     needs: build-and-push
-    permissions:
-      packages: write
-      pull-requests: write
     steps:
       - name: Download digests
         uses: actions/download-artifact@v6
@@ -202,10 +248,8 @@ jobs:
   # Clean up PR image when PR is closed
   cleanup-pr-image:
     name: Cleanup PR Image
-    if: github.event_name == 'pull_request_target' && github.event.action == 'closed'
+    if: github.event.action == 'closed'
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
     steps:
       - name: Delete PR container image
         env:
