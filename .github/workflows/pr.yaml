@@ -219,7 +219,7 @@ jobs:
             });
 
             const hasLabel = labels.data.some(label => label.name === 'Container Available');
-            return hasLabel ? 'false' : 'true';
+            core.setOutput('result', hasLabel ? 'false' : 'true');
 
       - name: Add Container Available label
         if: steps.first_build.outputs.result == 'true'
@@ -251,37 +251,26 @@ jobs:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
-      - name: Delete PR container image
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Install crane
         run: |
-          OWNER="${{ github.repository_owner }}"
-          PACKAGE="${{ github.event.repository.name }}"
+          curl -sL "https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz" | tar -xz crane
+          sudo mv crane /usr/local/bin/
+          crane version
+
+      - name: Delete PR container tag
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}"
           TAG="pr-${{ github.event.pull_request.number }}"
 
-          echo "🔍 Looking for image with tag: ${TAG}"
+          echo "🔍 Removing tag: ${IMAGE}:${TAG}"
 
-          # Find version ID for this PR tag
-          VERSION_ID=$(gh api --paginate "/users/${OWNER}/packages/container/${PACKAGE}/versions" \
-            --jq ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id")
+          # Login to GHCR
+          echo "${{ secrets.GITHUB_TOKEN }}" | crane auth login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          if [ -z "${VERSION_ID}" ]; then
-            echo "✅ No image found with tag ${TAG}"
-            exit 0
-          fi
-
-          # Check if this is the last version (GitHub doesn't allow deleting the last tagged version)
-          TOTAL_VERSIONS=$(gh api --paginate "/users/${OWNER}/packages/container/${PACKAGE}/versions" --jq 'length')
-          if [ "${TOTAL_VERSIONS}" -eq 1 ]; then
-            echo "ℹ️  Skipping deletion: ${TAG} is the last version in the package"
-            echo "Package will be cleaned up when a new version is pushed"
-            exit 0
-          fi
-
-          echo "🗑️  Deleting image version ${VERSION_ID} with tag ${TAG} (${TOTAL_VERSIONS} total versions)"
-          if gh api --method DELETE --silent "/users/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"; then
-            echo "✅ Successfully deleted image ${TAG}"
+          # Delete tag (not the image, just untag)
+          if crane delete "${IMAGE}:${TAG}" 2>&1; then
+            echo "✅ Successfully removed tag ${TAG}"
+            echo "Image data will be garbage collected automatically"
           else
-            echo "❌ Failed to delete image ${TAG}"
-            exit 1
+            echo "⚠️  Tag ${TAG} not found or already removed"
           fi
