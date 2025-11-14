@@ -231,7 +231,7 @@ jobs:
             const labels = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number
+              issue_number: context.payload.pull_request.number
             });
 
             const hasLabel = labels.data.some(label => label.name === 'Container Available');
@@ -245,7 +245,7 @@ jobs:
             github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: context.payload.pull_request.number,
               labels: ['Container Available']
             })
 
@@ -255,7 +255,7 @@ jobs:
         with:
           script: |
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `✅ Container image is now available!\n\n**Image:** \`ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\`\n\n**Platforms:** linux/amd64, linux/arm64\n\n**Note:** This image will be automatically rebuilt on every commit to this PR. You can always pull the latest version using the command below.\n\n**Pull command:**\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\n\`\`\``
