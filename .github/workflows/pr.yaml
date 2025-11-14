@@ -227,6 +227,7 @@ jobs:
         id: first_build
         uses: actions/github-script@v8
         with:
+          result-encoding: string
           script: |
             const labels = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
@@ -235,7 +236,7 @@ jobs:
             });
 
             const hasLabel = labels.data.some(label => label.name === 'Container Available');
-            core.setOutput('result', hasLabel ? 'false' : 'true');
+            return hasLabel ? 'false' : 'true';
 
       - name: Add Container Available label
         if: steps.first_build.outputs.result == 'true'
