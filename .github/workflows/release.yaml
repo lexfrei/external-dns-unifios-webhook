@@ -153,7 +153,7 @@ jobs:
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          docker buildx imagetools inspect ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -171,7 +171,7 @@ jobs:
 
       - name: Generate build summary
         run: |
-          IMAGE_TAG="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+          IMAGE_TAG="${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
           MANIFEST_DIGEST=$(docker buildx imagetools inspect "${IMAGE_TAG}" --format '{{.Manifest.Digest}}')
 
           {
