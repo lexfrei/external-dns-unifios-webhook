@@ -1,0 +1,279 @@
+name: PR Checks and Build
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, closed]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  # Fast checks: linting and tests
+  lint:
+    name: Lint
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
+
+  test:
+    name: Test
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
+  # Build containers only after lint and test succeed
+  build-and-push:
+    name: Build and Push
+    if: github.event.action != 'closed'
+    needs: [lint, test]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Prepare platform identifier
+        id: platform
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "pair=${platform//\//-}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: type=ref,event=pr
+
+      - name: Build and Push by Digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
+          cache-to: type=gha,scope=build-${{ steps.platform.outputs.pair }},mode=max
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v5
+        with:
+          name: digests-${{ steps.platform.outputs.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge all digests into multi-arch manifest
+  merge-manifests:
+    name: Merge Manifests
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v6
+        with:
+          pattern: digests-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: type=ref,event=pr
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+
+          # Build tag arguments array (-t and tag as separate elements)
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t", .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+
+          # Build image references array
+          images=()
+          for digest_file in *; do
+            [[ -f "$digest_file" ]] || continue
+            images+=("ghcr.io/${{ github.repository }}@sha256:${digest_file}")
+          done
+
+          # Create multi-arch manifest
+          docker buildx imagetools create "${tag_args[@]}" "${images[@]}"
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}
+
+      - name: Generate build summary
+        run: |
+          IMAGE_TAG="ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}"
+          MANIFEST_DIGEST=$(docker buildx imagetools inspect "${IMAGE_TAG}" --format '{{.Manifest.Digest}}')
+
+          {
+            echo "## 🚀 PR Container Image Built"
+            echo ""
+            echo "### 📦 Image Tag"
+            echo "- \`${IMAGE_TAG}\`"
+            echo ""
+            echo "### 🏗️ Platforms"
+            docker buildx imagetools inspect "${IMAGE_TAG}" --format '{{range .Manifest.Manifests}}- {{.Platform.OS}}/{{.Platform.Architecture}}{{if .Platform.Variant}}/{{.Platform.Variant}}{{end}}{{"\n"}}{{end}}'
+            echo ""
+            echo "### 📋 Manifest Digest"
+            echo "\`${MANIFEST_DIGEST}\`"
+            echo ""
+            echo "### 📥 Pull Command"
+            echo '```bash'
+            echo "docker pull ${IMAGE_TAG}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check if first build
+        id: first_build
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const labels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const hasLabel = labels.data.some(label => label.name === 'Container Available');
+            return hasLabel ? 'false' : 'true';
+
+      - name: Add Container Available label
+        if: steps.first_build.outputs.result == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['Container Available']
+            })
+
+      - name: Comment on PR (first time only)
+        if: steps.first_build.outputs.result == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Container image is now available!\n\n**Image:** \`ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\`\n\n**Platforms:** linux/amd64, linux/arm64\n\n**Note:** This image will be automatically rebuilt on every commit to this PR. You can always pull the latest version using the command below.\n\n**Pull command:**\n\`\`\`bash\ndocker pull ghcr.io/${{ github.repository }}:pr-${{ github.event.pull_request.number }}\n\`\`\``
+            })
+
+  # Clean up PR image when PR is closed
+  cleanup-pr-image:
+    name: Cleanup PR Image
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete PR container image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          PACKAGE="${{ github.event.repository.name }}"
+          TAG="pr-${{ github.event.pull_request.number }}"
+
+          echo "🔍 Looking for image with tag: ${TAG}"
+
+          # Find version ID for this PR tag
+          VERSION_ID=$(gh api --paginate "/users/${OWNER}/packages/container/${PACKAGE}/versions" \
+            --jq ".[] | select(.metadata.container.tags[]? == \"${TAG}\") | .id")
+
+          if [ -z "${VERSION_ID}" ]; then
+            echo "✅ No image found with tag ${TAG}"
+            exit 0
+          fi
+
+          echo "🗑️  Deleting image version ${VERSION_ID} with tag ${TAG}"
+          if gh api --method DELETE --silent "/users/${OWNER}/packages/container/${PACKAGE}/versions/${VERSION_ID}"; then
+            echo "✅ Successfully deleted image ${TAG}"
+          else
+            echo "❌ Failed to delete image ${TAG}"
+            exit 1
+          fi
