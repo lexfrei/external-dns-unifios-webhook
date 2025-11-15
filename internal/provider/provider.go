@@ -144,6 +144,8 @@ func (p *UniFiProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endp
 }
 
 // GetDomainFilter returns the domain filter configuration.
+//
+//nolint:ireturn // Required by external-dns provider interface
 func (p *UniFiProvider) GetDomainFilter() endpoint.DomainFilterInterface {
 	return &p.domainFilter
 }

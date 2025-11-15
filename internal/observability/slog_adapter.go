@@ -37,6 +37,8 @@ func (a *SlogAdapter) Error(msg string, fields ...observability.Field) {
 }
 
 // With returns a new logger with the given fields pre-populated.
+//
+//nolint:ireturn // Required by observability.Logger interface
 func (a *SlogAdapter) With(fields ...observability.Field) observability.Logger {
 	return &SlogAdapter{
 		logger: a.logger.With(a.convertFields(fields)...),
