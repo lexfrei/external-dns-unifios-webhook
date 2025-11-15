@@ -373,19 +373,28 @@ func (p *UniFiProvider) deleteRecord(ctx context.Context, endpointToDelete *endp
 }
 
 // findRecordsByName finds all DNS records with the given name.
+// Uses map-based index for O(1) lookup instead of O(N) linear search.
 func (p *UniFiProvider) findRecordsByName(ctx context.Context, name string) ([]unifi.DNSRecord, error) {
 	records, err := p.client.ListDNSRecords(ctx, p.site)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list DNS records")
 	}
 
-	var matching []unifi.DNSRecord
+	// Build index: map[name][]record for O(1) lookup
+	// This is more efficient than linear search when deleting multiple records
+	index := buildRecordIndex(records)
+
+	return index[name], nil
+}
+
+// buildRecordIndex creates a map index of DNS records by name.
+// This allows O(1) lookup instead of O(N) linear search.
+func buildRecordIndex(records []unifi.DNSRecord) map[string][]unifi.DNSRecord {
+	index := make(map[string][]unifi.DNSRecord, len(records))
 
 	for _, record := range records {
-		if record.Key == name {
-			matching = append(matching, record)
-		}
+		index[record.Key] = append(index[record.Key], record)
 	}
 
-	return matching, nil
+	return index
 }
