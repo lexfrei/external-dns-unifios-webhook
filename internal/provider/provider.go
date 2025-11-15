@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -14,7 +15,11 @@ import (
 	"sigs.k8s.io/external-dns/plan"
 )
 
-const defaultTTL = 300
+const (
+	defaultTTL = 300
+	// maxConcurrency limits parallel DNS operations to protect UniFi API from overload.
+	maxConcurrency = 5
+)
 
 // UniFiProvider implements the provider.Provider interface for UniFi OS.
 type UniFiProvider struct {
@@ -147,18 +152,59 @@ func (p *UniFiProvider) GetDomainFilter() endpoint.DomainFilterInterface {
 
 //nolint:dupl // applyDeletions and applyCreations are similar but handle different operations
 func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	// Use semaphore pattern to limit concurrency and protect UniFi API
+	semaphore := make(chan struct{}, maxConcurrency)
+	errChan := make(chan error, len(endpoints))
+
+	var wg sync.WaitGroup
+
 	for _, endpointToDelete := range endpoints {
-		start := time.Now()
+		wg.Add(1)
 
-		err := p.deleteRecord(ctx, endpointToDelete)
-		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("delete", "error").Inc()
+		go func(endpointItem *endpoint.Endpoint) {
+			defer wg.Done()
 
-			return errors.Wrapf(err, "failed to delete record %s", endpointToDelete.DNSName)
+			semaphore <- struct{}{} // Acquire
+
+			defer func() { <-semaphore }() // Release
+
+			start := time.Now()
+
+			err := p.deleteRecord(ctx, endpointItem)
+			if err != nil {
+				metrics.DNSOperationsTotal.WithLabelValues("delete", "error").Inc()
+
+				errChan <- errors.Wrapf(err, "failed to delete record %s", endpointItem.DNSName)
+
+				return
+			}
+
+			metrics.DNSOperationsTotal.WithLabelValues("delete", "success").Inc()
+			metrics.DNSOperationDuration.WithLabelValues("delete").Observe(time.Since(start).Seconds())
+		}(endpointToDelete)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Collect all errors
+	errs := make([]error, 0, len(endpoints))
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		// Combine all errors into a single error
+		combined := errs[0]
+		for idx := 1; idx < len(errs); idx++ {
+			combined = errors.WithSecondaryError(combined, errs[idx])
 		}
 
-		metrics.DNSOperationsTotal.WithLabelValues("delete", "success").Inc()
-		metrics.DNSOperationDuration.WithLabelValues("delete").Observe(time.Since(start).Seconds())
+		return errors.Wrap(combined, "parallel deletions failed")
 	}
 
 	return nil
@@ -199,18 +245,59 @@ func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpo
 
 //nolint:dupl // applyCreations and applyDeletions are similar but handle different operations
 func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	// Use semaphore pattern to limit concurrency and protect UniFi API
+	semaphore := make(chan struct{}, maxConcurrency)
+	errChan := make(chan error, len(endpoints))
+
+	var wg sync.WaitGroup
+
 	for _, endpointToCreate := range endpoints {
-		start := time.Now()
+		wg.Add(1)
 
-		err := p.createRecord(ctx, endpointToCreate)
-		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("create", "error").Inc()
+		go func(endpointItem *endpoint.Endpoint) {
+			defer wg.Done()
 
-			return errors.Wrapf(err, "failed to create record %s", endpointToCreate.DNSName)
+			semaphore <- struct{}{} // Acquire
+
+			defer func() { <-semaphore }() // Release
+
+			start := time.Now()
+
+			err := p.createRecord(ctx, endpointItem)
+			if err != nil {
+				metrics.DNSOperationsTotal.WithLabelValues("create", "error").Inc()
+
+				errChan <- errors.Wrapf(err, "failed to create record %s", endpointItem.DNSName)
+
+				return
+			}
+
+			metrics.DNSOperationsTotal.WithLabelValues("create", "success").Inc()
+			metrics.DNSOperationDuration.WithLabelValues("create").Observe(time.Since(start).Seconds())
+		}(endpointToCreate)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Collect all errors
+	errs := make([]error, 0, len(endpoints))
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		// Combine all errors into a single error
+		combined := errs[0]
+		for idx := 1; idx < len(errs); idx++ {
+			combined = errors.WithSecondaryError(combined, errs[idx])
 		}
 
-		metrics.DNSOperationsTotal.WithLabelValues("create", "success").Inc()
-		metrics.DNSOperationDuration.WithLabelValues("create").Observe(time.Since(start).Seconds())
+		return errors.Wrap(combined, "parallel creations failed")
 	}
 
 	return nil
