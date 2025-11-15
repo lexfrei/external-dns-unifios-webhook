@@ -41,6 +41,12 @@ type LoggingConfig struct {
 	Format string `mapstructure:"format"`
 }
 
+// DebugConfig contains debug/profiling settings.
+type DebugConfig struct {
+	PprofEnabled bool   `mapstructure:"pprof_enabled"`
+	PprofPort    string `mapstructure:"pprof_port"`
+}
+
 // Config represents the complete application configuration.
 type Config struct {
 	UniFi        UniFiConfig        `mapstructure:"unifi"`
@@ -48,6 +54,7 @@ type Config struct {
 	Health       HealthConfig       `mapstructure:"health"`
 	DomainFilter DomainFilterConfig `mapstructure:"domain_filter"`
 	Logging      LoggingConfig      `mapstructure:"logging"`
+	Debug        DebugConfig        `mapstructure:"debug"`
 }
 
 // Load loads configuration from environment variables and config files.
