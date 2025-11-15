@@ -60,9 +60,10 @@ func (s *Server) GetRecords(w http.ResponseWriter, r *http.Request, _ webhook.Ge
 	}
 
 	// Convert external-dns endpoints to webhook API endpoints
-	webhookEndpoints := make(webhook.Endpoints, 0, len(endpoints))
-	for _, ep := range endpoints {
-		webhookEndpoints = append(webhookEndpoints, convertToWebhookEndpoint(ep))
+	// Pre-allocate exact size to avoid slice growth
+	webhookEndpoints := make(webhook.Endpoints, len(endpoints))
+	for idx, ep := range endpoints {
+		webhookEndpoints[idx] = convertToWebhookEndpoint(ep)
 	}
 
 	w.Header().Set("Content-Type", "application/external.dns.webhook+json;version=1")
@@ -239,27 +240,32 @@ func convertFromProviderSpecific(wps *[]webhook.ProviderSpecificProperty) endpoi
 func convertToPlan(changes *webhook.Changes) *plan.Changes {
 	planChanges := &plan.Changes{}
 
-	if changes.Create != nil {
-		for _, ep := range *changes.Create {
-			planChanges.Create = append(planChanges.Create, convertFromWebhookEndpoint(&ep))
+	// Pre-allocate slices with exact sizes to avoid growth
+	if changes.Create != nil && len(*changes.Create) > 0 {
+		planChanges.Create = make([]*endpoint.Endpoint, len(*changes.Create))
+		for idx, ep := range *changes.Create {
+			planChanges.Create[idx] = convertFromWebhookEndpoint(&ep)
 		}
 	}
 
-	if changes.UpdateOld != nil {
-		for _, ep := range *changes.UpdateOld {
-			planChanges.UpdateOld = append(planChanges.UpdateOld, convertFromWebhookEndpoint(&ep))
+	if changes.UpdateOld != nil && len(*changes.UpdateOld) > 0 {
+		planChanges.UpdateOld = make([]*endpoint.Endpoint, len(*changes.UpdateOld))
+		for idx, ep := range *changes.UpdateOld {
+			planChanges.UpdateOld[idx] = convertFromWebhookEndpoint(&ep)
 		}
 	}
 
-	if changes.UpdateNew != nil {
-		for _, ep := range *changes.UpdateNew {
-			planChanges.UpdateNew = append(planChanges.UpdateNew, convertFromWebhookEndpoint(&ep))
+	if changes.UpdateNew != nil && len(*changes.UpdateNew) > 0 {
+		planChanges.UpdateNew = make([]*endpoint.Endpoint, len(*changes.UpdateNew))
+		for idx, ep := range *changes.UpdateNew {
+			planChanges.UpdateNew[idx] = convertFromWebhookEndpoint(&ep)
 		}
 	}
 
-	if changes.Delete != nil {
-		for _, ep := range *changes.Delete {
-			planChanges.Delete = append(planChanges.Delete, convertFromWebhookEndpoint(&ep))
+	if changes.Delete != nil && len(*changes.Delete) > 0 {
+		planChanges.Delete = make([]*endpoint.Endpoint, len(*changes.Delete))
+		for idx, ep := range *changes.Delete {
+			planChanges.Delete[idx] = convertFromWebhookEndpoint(&ep)
 		}
 	}
 
