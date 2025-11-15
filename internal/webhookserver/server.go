@@ -2,7 +2,6 @@ package webhookserver
 
 import (
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 
@@ -268,28 +267,24 @@ func convertToPlan(changes *webhook.Changes) *plan.Changes {
 }
 
 // decodeChanges reads and decodes the changes from request body.
+// Uses streaming JSON decoder to reduce memory allocations.
 func (s *Server) decodeChanges(r *http.Request) (*webhook.Changes, error) {
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to read request body", "error", err)
-
-		return nil, errors.Wrap(err, "failed to read request body")
-	}
-
-	slog.DebugContext(r.Context(), "request body", "body", string(bodyBytes), "size", len(bodyBytes))
-
 	var changes webhook.Changes
 
-	err = json.Unmarshal(bodyBytes, &changes)
-	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to unmarshal changes",
-			"error", err,
-			"content_type", r.Header.Get("Content-Type"),
-			"body", string(bodyBytes))
+	// Use streaming decoder instead of reading entire body into memory
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields() // Strict validation
 
-		return nil, errors.Wrap(err, "failed to unmarshal changes")
+	err := decoder.Decode(&changes)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to decode changes",
+			"error", err,
+			"content_type", r.Header.Get("Content-Type"))
+
+		return nil, errors.Wrap(err, "failed to decode changes")
 	}
 
+	// Log only counts, not full body content (saves memory in debug mode)
 	createCount := 0
 	if changes.Create != nil {
 		createCount = len(*changes.Create)
