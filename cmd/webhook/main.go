@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof" // Register pprof handlers
 	"os"
 	"os/signal"
 	"syscall"
@@ -120,6 +121,31 @@ func run() error {
 		WriteTimeout:      10 * time.Second, // Response writing timeout
 		IdleTimeout:       30 * time.Second, // Shorter idle for health endpoint
 		MaxHeaderBytes:    1 << 16,          // 64 KB (health checks have small headers)
+	}
+
+	// Start pprof debug server if enabled
+	if cfg.Debug.PprofEnabled {
+		slog.Warn("pprof profiling enabled - DO NOT use in production",
+			"port", cfg.Debug.PprofPort,
+			"endpoints", []string{
+				fmt.Sprintf("http://localhost:%s/debug/pprof/", cfg.Debug.PprofPort),
+				fmt.Sprintf("http://localhost:%s/debug/pprof/heap", cfg.Debug.PprofPort),
+				fmt.Sprintf("http://localhost:%s/debug/pprof/goroutine", cfg.Debug.PprofPort),
+			})
+
+		go func() {
+			pprofServer := &http.Server{
+				Addr:              ":" + cfg.Debug.PprofPort,
+				Handler:           http.DefaultServeMux, // pprof handlers
+				ReadTimeout:       30 * time.Second,
+				ReadHeaderTimeout: 5 * time.Second,
+				WriteTimeout:      30 * time.Second,
+			}
+
+			if err := pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("pprof server error", "error", err)
+			}
+		}()
 	}
 
 	// Start servers
