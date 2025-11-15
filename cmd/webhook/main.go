@@ -96,8 +96,13 @@ func run() error {
 	})
 
 	webhookHTTPServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
-		Handler: webhookRouter,
+		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
+		Handler:           webhookRouter,
+		ReadTimeout:       15 * time.Second,  // Time to read request headers and body
+		ReadHeaderTimeout: 5 * time.Second,   // Time to read request headers only
+		WriteTimeout:      15 * time.Second,  // Time to write response
+		IdleTimeout:       60 * time.Second,  // Keep-alive timeout
+		MaxHeaderBytes:    1 << 20,           // 1 MB max header size
 	}
 
 	// Create health server with custom registry
@@ -108,8 +113,13 @@ func run() error {
 	health.HandlerFromMux(healthSrv, healthRouter)
 
 	healthHTTPServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port),
-		Handler: healthRouter,
+		Addr:              fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port),
+		Handler:           healthRouter,
+		ReadTimeout:       5 * time.Second,  // Health checks are quick
+		ReadHeaderTimeout: 2 * time.Second,  // Headers should arrive fast
+		WriteTimeout:      10 * time.Second, // Response writing timeout
+		IdleTimeout:       30 * time.Second, // Shorter idle for health endpoint
+		MaxHeaderBytes:    1 << 16,          // 64 KB (health checks have small headers)
 	}
 
 	// Start servers
