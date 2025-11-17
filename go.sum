@@ -110,6 +110,8 @@ github.com/lexfrei/go-unifi v0.1.1 h1:bxrFyjp3wdNWohXtpkIU42q+h/wl0QDLVv4AQrmTz4
 github.com/lexfrei/go-unifi v0.1.1/go.mod h1:GNiGFUDqGMqV05igP65hosOO/DDEmM4tocPtqqgq8Hw=
 github.com/lexfrei/go-unifi v0.1.3 h1:8ik++6174JjiLZ9jbGkLdbWDLLHZoR5TjWZ77oV+FPo=
 github.com/lexfrei/go-unifi v0.1.3/go.mod h1:9CjHVvyuuex+lkHCkarw6+ud/EAudeKOjlIfpspAIu4=
+github.com/lexfrei/go-unifi v0.2.0 h1:qCBtI8xAsq08DyZh8rYVEpld0uKoa2M+cU46z+gNphY=
+github.com/lexfrei/go-unifi v0.2.0/go.mod h1:9CjHVvyuuex+lkHCkarw6+ud/EAudeKOjlIfpspAIu4=
 github.com/mailru/easyjson v0.9.1 h1:LbtsOm5WAswyWbvTEOqhypdPeZzHavpZx96/n553mR8=
 github.com/mailru/easyjson v0.9.1/go.mod h1:1+xMtQp2MRNVL/V1bOzuP3aP8VNwRW55fQUto+XFtTU=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
