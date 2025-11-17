@@ -19,6 +19,8 @@ const (
 	defaultTTL = 300
 	// maxConcurrency limits parallel DNS operations to protect UniFi API from overload.
 	maxConcurrency = 5
+	// operationTimeout is the maximum time allowed for a single DNS operation.
+	operationTimeout = 30 * time.Second
 )
 
 // UniFiProvider implements the provider.Provider interface for UniFi OS.
@@ -150,6 +152,7 @@ func (p *UniFiProvider) GetDomainFilter() endpoint.DomainFilterInterface {
 	return &p.domainFilter
 }
 
+//nolint:contextcheck,funlen // Using Background() to decouple from parent; long for parallel processing
 func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoint.Endpoint) error {
 	if len(endpoints) == 0 {
 		return nil
@@ -181,9 +184,15 @@ func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoin
 
 			defer func() { <-semaphore }() // Release
 
+			// Create independent context with timeout for this operation
+			// This prevents cancellation of parent request context from aborting DNS operations
+			// If HTTP client disconnects, we still want to complete the DNS changes
+			opCtx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+			defer cancel()
+
 			start := time.Now()
 
-			err := p.deleteRecordWithIndex(ctx, endpointItem, recordIndex)
+			err := p.deleteRecordWithIndex(opCtx, endpointItem, recordIndex)
 			if err != nil {
 				metrics.DNSOperationsTotal.WithLabelValues("delete", "error").Inc()
 
@@ -221,6 +230,7 @@ func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoin
 	return nil
 }
 
+//nolint:contextcheck // Using Background() to decouple from parent request context
 func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpoints []*endpoint.Endpoint) error {
 	if len(oldEndpoints) == 0 && len(newEndpoints) == 0 {
 		return nil
@@ -240,9 +250,15 @@ func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpo
 
 	// Delete old records
 	for _, oldEndpoint := range oldEndpoints {
+		// Create independent context for each operation to prevent partial failures
+		opCtx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+
 		start := time.Now()
 
-		err := p.deleteRecordWithIndex(ctx, oldEndpoint, recordIndex)
+		err := p.deleteRecordWithIndex(opCtx, oldEndpoint, recordIndex)
+
+		cancel() // Release context resources
+
 		if err != nil {
 			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
 
@@ -254,9 +270,15 @@ func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpo
 
 	// Create new records
 	for _, newEndpoint := range newEndpoints {
+		// Create independent context for each operation to prevent partial failures
+		opCtx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+
 		start := time.Now()
 
-		err := p.createRecord(ctx, newEndpoint)
+		err := p.createRecord(opCtx, newEndpoint)
+
+		cancel() // Release context resources
+
 		if err != nil {
 			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
 
@@ -270,7 +292,10 @@ func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpo
 	return nil
 }
 
+//nolint:contextcheck // Using Background() to decouple from parent request context
 func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	_ = ctx // Unused but required by function signature for consistency
+
 	if len(endpoints) == 0 {
 		return nil
 	}
@@ -291,9 +316,15 @@ func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoin
 
 			defer func() { <-semaphore }() // Release
 
+			// Create independent context with timeout for this operation
+			// This prevents cancellation of parent request context from aborting DNS operations
+			// If HTTP client disconnects, we still want to complete the DNS changes
+			opCtx, cancel := context.WithTimeout(context.Background(), operationTimeout)
+			defer cancel()
+
 			start := time.Now()
 
-			err := p.createRecord(ctx, endpointItem)
+			err := p.createRecord(opCtx, endpointItem)
 			if err != nil {
 				metrics.DNSOperationsTotal.WithLabelValues("create", "error").Inc()
 
