@@ -207,13 +207,15 @@ func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoin
 	}
 
 	if len(errs) > 0 {
-		// Combine all errors into a single error
-		combined := errs[0]
-		for idx := 1; idx < len(errs); idx++ {
-			combined = errors.WithSecondaryError(combined, errs[idx])
+		// Build comprehensive error message with all failure details
+		// This ensures all errors are visible in logs, not just the first one
+		errorMessages := make([]string, len(errs))
+		for idx, err := range errs {
+			errorMessages[idx] = err.Error()
 		}
 
-		return errors.Wrap(combined, "parallel deletions failed")
+		//nolint:wrapcheck // Creating new aggregate error from collected errors
+		return errors.Newf("parallel deletions failed: %d errors occurred: %v", len(errs), errorMessages)
 	}
 
 	return nil
@@ -315,13 +317,15 @@ func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoin
 	}
 
 	if len(errs) > 0 {
-		// Combine all errors into a single error
-		combined := errs[0]
-		for idx := 1; idx < len(errs); idx++ {
-			combined = errors.WithSecondaryError(combined, errs[idx])
+		// Build comprehensive error message with all failure details
+		// This ensures all errors are visible in logs, not just the first one
+		errorMessages := make([]string, len(errs))
+		for idx, err := range errs {
+			errorMessages[idx] = err.Error()
 		}
 
-		return errors.Wrap(combined, "parallel creations failed")
+		//nolint:wrapcheck // Creating new aggregate error from collected errors
+		return errors.Newf("parallel creations failed: %d errors occurred: %v", len(errs), errorMessages)
 	}
 
 	return nil
