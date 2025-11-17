@@ -14,12 +14,12 @@ import (
 
 // Server implements the webhook.ServerInterface for external-dns webhook protocol.
 type Server struct {
-	provider *provider.UniFiProvider
+	provider provider.DNSProvider
 	filter   endpoint.DomainFilter
 }
 
 // New creates a new webhook server instance.
-func New(prov *provider.UniFiProvider, filter endpoint.DomainFilter) *Server {
+func New(prov provider.DNSProvider, filter endpoint.DomainFilter) *Server {
 	return &Server{
 		provider: prov,
 		filter:   filter,

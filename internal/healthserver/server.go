@@ -25,14 +25,14 @@ const readinessCacheTTL = 30 * time.Second
 
 // Server implements the health.ServerInterface for health checks and metrics.
 type Server struct {
-	provider       *provider.UniFiProvider
+	provider       provider.DNSProvider
 	registry       *prometheus.Registry
 	readinessCache *readinessCache
 	checkGroup     singleflight.Group
 }
 
 // New creates a new health server instance with a custom Prometheus registry.
-func New(prov *provider.UniFiProvider, registry *prometheus.Registry) *Server {
+func New(prov provider.DNSProvider, registry *prometheus.Registry) *Server {
 	return &Server{
 		provider: prov,
 		registry: registry,
