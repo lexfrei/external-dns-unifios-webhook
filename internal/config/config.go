@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -105,16 +106,41 @@ func Load() (*Config, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal config")
 	}
 
-	// Validate required configuration
-	if cfg.UniFi.Host == "" {
-		return nil, errors.New("WEBHOOK_UNIFI_HOST is required")
-	}
-
-	if cfg.UniFi.APIKey == "" {
-		return nil, errors.New("WEBHOOK_UNIFI_API_KEY is required")
+	// Validate configuration
+	err = validate(&cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+// validate validates the configuration.
+func validate(cfg *Config) error {
+	// Validate required configuration
+	if cfg.UniFi.Host == "" {
+		return errors.New("WEBHOOK_UNIFI_HOST is required")
+	}
+
+	if cfg.UniFi.APIKey == "" {
+		return errors.New("WEBHOOK_UNIFI_API_KEY is required")
+	}
+
+	// Validate pprof port if pprof is enabled
+	if cfg.Debug.PprofEnabled {
+		port, err := strconv.Atoi(cfg.Debug.PprofPort)
+		if err != nil {
+			//nolint:wrapcheck // Creating new error, not wrapping
+			return errors.Newf("WEBHOOK_DEBUG_PPROF_PORT must be a valid number, got: %s", cfg.Debug.PprofPort)
+		}
+
+		if port < 1024 || port > 65535 {
+			//nolint:wrapcheck // Creating new error, not wrapping
+			return errors.Newf("WEBHOOK_DEBUG_PPROF_PORT must be between 1024 and 65535, got: %d", port)
+		}
+	}
+
+	return nil
 }
 
 // setDefaults sets default configuration values.
