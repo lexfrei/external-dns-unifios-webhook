@@ -120,7 +120,7 @@ func run() error {
 		ReadHeaderTimeout: 2 * time.Second,  // Headers should arrive fast
 		WriteTimeout:      10 * time.Second, // Response writing timeout
 		IdleTimeout:       30 * time.Second, // Shorter idle for health endpoint
-		MaxHeaderBytes:    1 << 16,          // 64 KB (health checks have small headers)
+		MaxHeaderBytes:    64 << 10,         // 64 KB (health checks have small headers)
 	}
 
 	// Start pprof debug server if enabled
