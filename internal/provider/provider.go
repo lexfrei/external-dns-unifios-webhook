@@ -7,10 +7,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
 	unifi "github.com/lexfrei/go-unifi/api/network"
-	"github.com/lexfrei/go-unifi/observability"
 	"golang.org/x/sync/semaphore"
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
@@ -26,35 +24,19 @@ const (
 
 // UniFiProvider implements the provider.Provider interface for UniFi OS.
 type UniFiProvider struct {
-	client       *unifi.APIClient
+	client       unifi.NetworkAPIClient
 	site         string
 	domainFilter endpoint.DomainFilter
 }
 
-// New creates a new UniFiProvider instance with observability support.
-func New(cfg config.UniFiConfig, domainFilter endpoint.DomainFilter, logger observability.Logger, metricsRecorder observability.MetricsRecorder) (*UniFiProvider, error) {
-	// Create UniFi API client using the official constructor
-	// This properly configures the base URL with /proxy/network prefix and API key authentication
-	client, err := unifi.NewWithConfig(&unifi.ClientConfig{
-		ControllerURL:      cfg.Host,
-		APIKey:             cfg.APIKey,
-		InsecureSkipVerify: cfg.SkipTLSVerify,
-		Logger:             logger,
-		Metrics:            metricsRecorder,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create UniFi API client")
-	}
-
-	if cfg.SkipTLSVerify {
-		slog.Warn("TLS certificate verification is disabled")
-	}
-
+// New creates a new UniFiProvider instance with the provided client.
+// This constructor accepts an interface to enable dependency injection for testing.
+func New(client unifi.NetworkAPIClient, site string, domainFilter endpoint.DomainFilter) *UniFiProvider {
 	return &UniFiProvider{
 		client:       client,
-		site:         cfg.Site,
+		site:         site,
 		domainFilter: domainFilter,
-	}, nil
+	}
 }
 
 // Records retrieves all DNS records from UniFi that match the domain filter.

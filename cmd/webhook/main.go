@@ -22,6 +22,7 @@ import (
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/observability"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/webhookserver"
+	unifi "github.com/lexfrei/go-unifi/api/network"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/external-dns/endpoint"
 )
@@ -68,11 +69,24 @@ func run() error {
 		cfg.DomainFilter.ExcludeFilters,
 	)
 
-	// Create UniFi provider with observability
-	prov, err := provider.New(cfg.UniFi, *domainFilter, logger, metricsRecorder)
+	// Create UniFi API client
+	client, err := unifi.NewWithConfig(&unifi.ClientConfig{
+		ControllerURL:      cfg.UniFi.Host,
+		APIKey:             cfg.UniFi.APIKey,
+		InsecureSkipVerify: cfg.UniFi.SkipTLSVerify,
+		Logger:             logger,
+		Metrics:            metricsRecorder,
+	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create provider")
+		return errors.Wrap(err, "failed to create UniFi API client")
 	}
+
+	if cfg.UniFi.SkipTLSVerify {
+		slog.Warn("TLS certificate verification is disabled")
+	}
+
+	// Create UniFi provider with dependency injection
+	prov := provider.New(client, cfg.UniFi.Site, *domainFilter)
 
 	// Create webhook server
 	webhookSrv := webhookserver.New(prov, *domainFilter)
