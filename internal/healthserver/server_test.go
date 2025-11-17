@@ -1,3 +1,4 @@
+//nolint:testpackage // Testing private readinessCache type
 package healthserver
 
 import (
@@ -19,7 +20,7 @@ func TestReadinessCacheRaceCondition(t *testing.T) {
 	wg.Add(concurrentOps * 2)
 
 	// Concurrent writes
-	for i := 0; i < concurrentOps; i++ {
+	for i := range concurrentOps {
 		go func(val bool) {
 			defer wg.Done()
 
@@ -31,7 +32,7 @@ func TestReadinessCacheRaceCondition(t *testing.T) {
 	}
 
 	// Concurrent reads
-	for i := 0; i < concurrentOps; i++ {
+	for range concurrentOps {
 		go func() {
 			defer wg.Done()
 
@@ -90,7 +91,7 @@ func TestReadinessCacheConcurrentUpdates(t *testing.T) {
 	wg.Add(updates)
 
 	// Many goroutines updating cache
-	for i := 0; i < updates; i++ {
+	for i := range updates {
 		go func(iteration int) {
 			defer wg.Done()
 
