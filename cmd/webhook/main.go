@@ -124,6 +124,8 @@ func run() error {
 	}
 
 	// Start pprof debug server if enabled
+	// pprofHTTPServer is declared outside the block to allow graceful shutdown
+	var pprofHTTPServer *http.Server
 	if cfg.Debug.PprofEnabled {
 		slog.Warn("pprof profiling enabled - DO NOT use in production",
 			"port", cfg.Debug.PprofPort,
@@ -133,16 +135,16 @@ func run() error {
 				fmt.Sprintf("http://localhost:%s/debug/pprof/goroutine", cfg.Debug.PprofPort),
 			})
 
-		go func() {
-			pprofServer := &http.Server{
-				Addr:              ":" + cfg.Debug.PprofPort,
-				Handler:           http.DefaultServeMux, // pprof handlers
-				ReadTimeout:       30 * time.Second,
-				ReadHeaderTimeout: 5 * time.Second,
-				WriteTimeout:      30 * time.Second,
-			}
+		pprofHTTPServer = &http.Server{
+			Addr:              "127.0.0.1:" + cfg.Debug.PprofPort, // Bind to localhost only for security
+			Handler:           http.DefaultServeMux,               // pprof handlers
+			ReadTimeout:       30 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      30 * time.Second,
+		}
 
-			if err := pprofServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		go func() {
+			if err := pprofHTTPServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				slog.Error("pprof server error", "error", err)
 			}
 		}()
@@ -187,6 +189,11 @@ func run() error {
 		}
 		if err := healthHTTPServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("health server shutdown error", "error", err)
+		}
+		if pprofHTTPServer != nil {
+			if err := pprofHTTPServer.Shutdown(shutdownCtx); err != nil {
+				slog.Error("pprof server shutdown error", "error", err)
+			}
 		}
 	}
 
