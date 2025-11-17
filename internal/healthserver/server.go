@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lexfrei/external-dns-unifios-webhook/api/health"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -104,8 +105,13 @@ func (s *Server) getCachedReadiness() (isReady, ok bool) {
 
 	cacheAge := time.Since(s.readinessCache.checkedAt)
 	if cacheAge < readinessCacheTTL {
+		metrics.ReadinessCacheHits.Inc()
+		metrics.ReadinessCacheAge.Set(cacheAge.Seconds())
+
 		return s.readinessCache.isReady, true
 	}
+
+	metrics.ReadinessCacheMisses.Inc()
 
 	return false, false
 }
