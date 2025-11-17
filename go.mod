@@ -6,10 +6,11 @@ require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/lexfrei/go-unifi v0.1.3
+	github.com/lexfrei/go-unifi v0.2.0
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/viper v1.21.0
+	golang.org/x/sync v0.18.0
 	sigs.k8s.io/external-dns v0.20.0
 )
 
@@ -77,7 +78,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
