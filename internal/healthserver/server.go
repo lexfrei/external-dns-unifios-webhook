@@ -64,16 +64,15 @@ func (s *Server) Liveness(w http.ResponseWriter, _ *http.Request) {
 // Uses caching with 30 second TTL to avoid excessive UniFi API calls.
 // Concurrent requests are deduplicated using singleflight to prevent thundering herd.
 func (s *Server) Readiness(w http.ResponseWriter, r *http.Request) {
-	// Try to use cached result if fresh enough
-	if cached, ok := s.getCachedReadiness(); ok {
-		s.writeReadinessResponse(w, cached, "")
-
-		return
-	}
-
 	// Use singleflight to deduplicate concurrent checks
-	// This prevents multiple simultaneous requests from all hitting the UniFi API
+	// Cache check is done INSIDE singleflight to avoid TOCTOU race
 	result, _, _ := s.checkGroup.Do("readiness", func() (any, error) {
+		// Try to use cached result if fresh enough
+		if cached, ok := s.getCachedReadiness(); ok {
+			return cached, nil
+		}
+
+		// Cache miss - perform actual check
 		isReady := s.checkProviderReadiness(r)
 
 		return isReady, nil
@@ -82,12 +81,12 @@ func (s *Server) Readiness(w http.ResponseWriter, r *http.Request) {
 	isReady, ok := result.(bool)
 	if !ok {
 		// This should never happen, but handle gracefully
-		s.writeReadinessResponse(w, false, "")
+		s.writeReadinessResponse(w, false)
 
 		return
 	}
 
-	s.writeReadinessResponse(w, isReady, "")
+	s.writeReadinessResponse(w, isReady)
 }
 
 // Metrics exports Prometheus metrics.
@@ -104,9 +103,10 @@ func (s *Server) getCachedReadiness() (isReady, ok bool) {
 	defer s.readinessCache.mu.RUnlock()
 
 	cacheAge := time.Since(s.readinessCache.checkedAt)
+	metrics.ReadinessCacheAge.Set(cacheAge.Seconds())
+
 	if cacheAge < readinessCacheTTL {
 		metrics.ReadinessCacheHits.Inc()
-		metrics.ReadinessCacheAge.Set(cacheAge.Seconds())
 
 		return s.readinessCache.isReady, true
 	}
@@ -130,7 +130,7 @@ func (s *Server) checkProviderReadiness(r *http.Request) bool {
 }
 
 // writeReadinessResponse writes readiness check response.
-func (s *Server) writeReadinessResponse(w http.ResponseWriter, isReady bool, suffix string) {
+func (s *Server) writeReadinessResponse(w http.ResponseWriter, isReady bool) {
 	var statusCode int
 
 	var statusValue health.HealthStatusStatus
@@ -140,19 +140,11 @@ func (s *Server) writeReadinessResponse(w http.ResponseWriter, isReady bool, suf
 	if isReady {
 		statusCode = http.StatusOK
 		statusValue = health.Ok
-
 		message = "Service is ready"
-		if suffix != "" {
-			message += " " + suffix
-		}
 	} else {
 		statusCode = http.StatusServiceUnavailable
 		statusValue = health.Error
-
 		message = "Service is not ready"
-		if suffix != "" {
-			message += " " + suffix
-		}
 	}
 
 	response := health.HealthStatus{
