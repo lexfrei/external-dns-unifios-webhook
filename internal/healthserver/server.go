@@ -10,6 +10,7 @@ import (
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sync/singleflight"
 )
 
 // readinessCache stores the cached result of readiness checks.
@@ -26,6 +27,7 @@ type Server struct {
 	provider       *provider.UniFiProvider
 	registry       *prometheus.Registry
 	readinessCache *readinessCache
+	checkGroup     singleflight.Group
 }
 
 // New creates a new health server instance with a custom Prometheus registry.
@@ -59,16 +61,31 @@ func (s *Server) Liveness(w http.ResponseWriter, _ *http.Request) {
 // Readiness checks if the service is ready to accept traffic.
 // GET /readyz.
 // Uses caching with 30 second TTL to avoid excessive UniFi API calls.
+// Concurrent requests are deduplicated using singleflight to prevent thundering herd.
 func (s *Server) Readiness(w http.ResponseWriter, r *http.Request) {
 	// Try to use cached result if fresh enough
 	if cached, ok := s.getCachedReadiness(); ok {
-		s.writeReadinessResponse(w, cached, "(cached)")
+		s.writeReadinessResponse(w, cached, "")
 
 		return
 	}
 
-	// Cache is stale or cold, perform actual check
-	isReady := s.checkProviderReadiness(r)
+	// Use singleflight to deduplicate concurrent checks
+	// This prevents multiple simultaneous requests from all hitting the UniFi API
+	result, _, _ := s.checkGroup.Do("readiness", func() (any, error) {
+		isReady := s.checkProviderReadiness(r)
+
+		return isReady, nil
+	})
+
+	isReady, ok := result.(bool)
+	if !ok {
+		// This should never happen, but handle gracefully
+		s.writeReadinessResponse(w, false, "")
+
+		return
+	}
+
 	s.writeReadinessResponse(w, isReady, "")
 }
 
