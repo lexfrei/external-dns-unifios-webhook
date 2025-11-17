@@ -154,7 +154,7 @@ func setDefaults(viperConfig *viper.Viper) {
 	viperConfig.SetDefault("server.host", "localhost")
 	viperConfig.SetDefault("server.port", "8888")
 
-	// Health defaults
+	// Health defaults (metrics and probes exposed for external monitoring)
 	viperConfig.SetDefault("health.host", "0.0.0.0")
 	viperConfig.SetDefault("health.port", "8080")
 
