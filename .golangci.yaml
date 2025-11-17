@@ -44,8 +44,8 @@ linters:
         - "64"
         - "500"
     nolintlint:
-      require-explanation: false
-      require-specific: false
+      require-explanation: true
+      require-specific: true
       allow-unused: false
     varnamelen:
       max-distance: 5
