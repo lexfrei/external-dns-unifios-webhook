@@ -99,11 +99,11 @@ func run() error {
 	webhookHTTPServer := &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
 		Handler:           webhookRouter,
-		ReadTimeout:       15 * time.Second,  // Time to read request headers and body
+		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
 		ReadHeaderTimeout: 5 * time.Second,   // Time to read request headers only
-		WriteTimeout:      15 * time.Second,  // Time to write response
-		IdleTimeout:       60 * time.Second,  // Keep-alive timeout
-		MaxHeaderBytes:    1 << 20,           // 1 MB max header size
+		WriteTimeout:      60 * time.Second,  // Time to write response (allows batch operations)
+		IdleTimeout:       120 * time.Second, // Keep-alive timeout
+		MaxHeaderBytes:    64 << 10,          // 64 KB (headers are small, body is in request body)
 	}
 
 	// Create health server with custom registry
