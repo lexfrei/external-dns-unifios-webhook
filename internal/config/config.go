@@ -79,6 +79,8 @@ func Load() (*Config, error) {
 	_ = viperConfig.BindEnv("health.port", "WEBHOOK_HEALTH_PORT")
 	_ = viperConfig.BindEnv("logging.level", "WEBHOOK_LOGGING_LEVEL")
 	_ = viperConfig.BindEnv("logging.format", "WEBHOOK_LOGGING_FORMAT")
+	_ = viperConfig.BindEnv("debug.pprof_enabled", "WEBHOOK_DEBUG_PPROF_ENABLED")
+	_ = viperConfig.BindEnv("debug.pprof_port", "WEBHOOK_DEBUG_PPROF_PORT")
 
 	// Try to read config file
 	viperConfig.SetConfigName("config")
@@ -133,4 +135,8 @@ func setDefaults(viperConfig *viper.Viper) {
 	// Logging defaults
 	viperConfig.SetDefault("logging.level", "info")
 	viperConfig.SetDefault("logging.format", "json")
+
+	// Debug defaults
+	viperConfig.SetDefault("debug.pprof_enabled", false)
+	viperConfig.SetDefault("debug.pprof_port", "6060")
 }

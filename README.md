@@ -157,6 +157,8 @@ provider:
 | `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
 | `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
 | `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
+| `WEBHOOK_DEBUG_PPROF_ENABLED`  | Enable pprof profiling endpoints (DO NOT use in production) | `false` |
+| `WEBHOOK_DEBUG_PPROF_PORT`     | pprof server port (when enabled)                 | `6060`      |
 
 ## 💻 Development
 
