@@ -6,6 +6,7 @@ require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.3
+	github.com/go-chi/httplog/v3 v3.3.0
 	github.com/lexfrei/go-unifi v0.2.0
 	github.com/oapi-codegen/runtime v1.1.2
 	github.com/prometheus/client_golang v1.23.2

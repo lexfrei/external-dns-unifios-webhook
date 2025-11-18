@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httplog/v3"
 	"github.com/lexfrei/external-dns-unifios-webhook/api/health"
 	"github.com/lexfrei/external-dns-unifios-webhook/api/webhook"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
@@ -91,7 +92,7 @@ func run() error {
 	// Create webhook server
 	webhookSrv := webhookserver.New(prov, *domainFilter)
 	webhookRouter := chi.NewRouter()
-	webhookRouter.Use(middleware.Logger)
+	webhookRouter.Use(httplog.RequestLogger(slog.Default(), &httplog.Options{}))
 	webhookRouter.Use(middleware.Recoverer)
 
 	// Custom error handler with detailed logging
@@ -123,7 +124,7 @@ func run() error {
 	// Create health server with custom registry
 	healthSrv := healthserver.New(prov, registry)
 	healthRouter := chi.NewRouter()
-	healthRouter.Use(middleware.Logger)
+	healthRouter.Use(httplog.RequestLogger(slog.Default(), &httplog.Options{}))
 	healthRouter.Use(middleware.Recoverer)
 	health.HandlerFromMux(healthSrv, healthRouter)
 
