@@ -11,6 +11,7 @@ linters:
     - lll
     - godoclint # False positive with doc.go pattern
     - errchkjson # Examples and test code don't need strict JSON marshaling checks
+    - ireturn # Provider interface requires returning interfaces
   settings:
     dupl:
       threshold: 100
