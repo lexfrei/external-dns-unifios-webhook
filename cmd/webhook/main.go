@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof" // Register pprof handlers
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,6 +22,7 @@ import (
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/observability"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/webhookserver"
+	unifi "github.com/lexfrei/go-unifi/api/network"
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/external-dns/endpoint"
 )
@@ -67,11 +69,24 @@ func run() error {
 		cfg.DomainFilter.ExcludeFilters,
 	)
 
-	// Create UniFi provider with observability
-	prov, err := provider.New(cfg.UniFi, *domainFilter, logger, metricsRecorder)
+	// Create UniFi API client
+	client, err := unifi.NewWithConfig(&unifi.ClientConfig{
+		ControllerURL:      cfg.UniFi.Host,
+		APIKey:             cfg.UniFi.APIKey,
+		InsecureSkipVerify: cfg.UniFi.SkipTLSVerify,
+		Logger:             logger,
+		Metrics:            metricsRecorder,
+	})
 	if err != nil {
-		return errors.Wrap(err, "failed to create provider")
+		return errors.Wrap(err, "failed to create UniFi API client")
 	}
+
+	if cfg.UniFi.SkipTLSVerify {
+		slog.Warn("TLS certificate verification is disabled")
+	}
+
+	// Create UniFi provider with dependency injection
+	prov := provider.New(client, cfg.UniFi.Site, *domainFilter)
 
 	// Create webhook server
 	webhookSrv := webhookserver.New(prov, *domainFilter)
@@ -96,8 +111,13 @@ func run() error {
 	})
 
 	webhookHTTPServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
-		Handler: webhookRouter,
+		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
+		Handler:           webhookRouter,
+		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
+		ReadHeaderTimeout: 5 * time.Second,   // Time to read request headers only
+		WriteTimeout:      60 * time.Second,  // Time to write response (allows batch operations)
+		IdleTimeout:       120 * time.Second, // Keep-alive timeout
+		MaxHeaderBytes:    64 << 10,          // 64 KB (headers are small, body is in request body)
 	}
 
 	// Create health server with custom registry
@@ -108,8 +128,40 @@ func run() error {
 	health.HandlerFromMux(healthSrv, healthRouter)
 
 	healthHTTPServer := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port),
-		Handler: healthRouter,
+		Addr:              fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port),
+		Handler:           healthRouter,
+		ReadTimeout:       5 * time.Second,  // Health checks are quick
+		ReadHeaderTimeout: 2 * time.Second,  // Headers should arrive fast
+		WriteTimeout:      10 * time.Second, // Response writing timeout
+		IdleTimeout:       30 * time.Second, // Shorter idle for health endpoint
+		MaxHeaderBytes:    64 << 10,         // 64 KB (health checks have small headers)
+	}
+
+	// Start pprof debug server if enabled
+	// pprofHTTPServer is declared outside the block to allow graceful shutdown
+	var pprofHTTPServer *http.Server
+	if cfg.Debug.PprofEnabled {
+		slog.Warn("pprof profiling enabled - DO NOT use in production",
+			"port", cfg.Debug.PprofPort,
+			"endpoints", []string{
+				fmt.Sprintf("http://localhost:%s/debug/pprof/", cfg.Debug.PprofPort),
+				fmt.Sprintf("http://localhost:%s/debug/pprof/heap", cfg.Debug.PprofPort),
+				fmt.Sprintf("http://localhost:%s/debug/pprof/goroutine", cfg.Debug.PprofPort),
+			})
+
+		pprofHTTPServer = &http.Server{
+			Addr:              "127.0.0.1:" + cfg.Debug.PprofPort, // Bind to localhost only for security
+			Handler:           http.DefaultServeMux,               // pprof handlers
+			ReadTimeout:       30 * time.Second,
+			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      30 * time.Second,
+		}
+
+		go func() {
+			if err := pprofHTTPServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				slog.Error("pprof server error", "error", err)
+			}
+		}()
 	}
 
 	// Start servers
@@ -151,6 +203,11 @@ func run() error {
 		}
 		if err := healthHTTPServer.Shutdown(shutdownCtx); err != nil {
 			slog.Error("health server shutdown error", "error", err)
+		}
+		if pprofHTTPServer != nil {
+			if err := pprofHTTPServer.Shutdown(shutdownCtx); err != nil {
+				slog.Error("pprof server shutdown error", "error", err)
+			}
 		}
 	}
 

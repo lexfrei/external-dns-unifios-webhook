@@ -3,50 +3,40 @@ package provider
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
 	unifi "github.com/lexfrei/go-unifi/api/network"
-	"github.com/lexfrei/go-unifi/observability"
+	"golang.org/x/sync/semaphore"
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
 )
 
-const defaultTTL = 300
+const (
+	defaultTTL = 300
+	// maxConcurrency limits parallel DNS operations to protect UniFi API from overload.
+	maxConcurrency = 5
+	// operationTimeout is the maximum time allowed for a single DNS operation.
+	operationTimeout = 30 * time.Second
+)
 
 // UniFiProvider implements the provider.Provider interface for UniFi OS.
 type UniFiProvider struct {
-	client       *unifi.APIClient
+	client       unifi.NetworkAPIClient
 	site         string
 	domainFilter endpoint.DomainFilter
 }
 
-// New creates a new UniFiProvider instance with observability support.
-func New(cfg config.UniFiConfig, domainFilter endpoint.DomainFilter, logger observability.Logger, metricsRecorder observability.MetricsRecorder) (*UniFiProvider, error) {
-	// Create UniFi API client using the official constructor
-	// This properly configures the base URL with /proxy/network prefix and API key authentication
-	client, err := unifi.NewWithConfig(&unifi.ClientConfig{
-		ControllerURL:      cfg.Host,
-		APIKey:             cfg.APIKey,
-		InsecureSkipVerify: cfg.SkipTLSVerify,
-		Logger:             logger,
-		Metrics:            metricsRecorder,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create UniFi API client")
-	}
-
-	if cfg.SkipTLSVerify {
-		slog.Warn("TLS certificate verification is disabled")
-	}
-
+// New creates a new UniFiProvider instance with the provided client.
+// This constructor accepts an interface to enable dependency injection for testing.
+func New(client unifi.NetworkAPIClient, site string, domainFilter endpoint.DomainFilter) *UniFiProvider {
 	return &UniFiProvider{
 		client:       client,
-		site:         cfg.Site,
+		site:         site,
 		domainFilter: domainFilter,
-	}, nil
+	}
 }
 
 // Records retrieves all DNS records from UniFi that match the domain filter.
@@ -140,80 +130,186 @@ func (p *UniFiProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endp
 
 // GetDomainFilter returns the domain filter configuration.
 //
-//nolint:ireturn // Required by external-dns provider interface
+//nolint:ireturn // This method correctly returns endpoint.DomainFilterInterface
 func (p *UniFiProvider) GetDomainFilter() endpoint.DomainFilterInterface {
 	return &p.domainFilter
 }
 
-//nolint:dupl // applyDeletions and applyCreations are similar but handle different operations
 func (p *UniFiProvider) applyDeletions(ctx context.Context, endpoints []*endpoint.Endpoint) error {
-	for _, endpointToDelete := range endpoints {
-		start := time.Now()
-
-		err := p.deleteRecord(ctx, endpointToDelete)
-		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("delete", "error").Inc()
-
-			return errors.Wrapf(err, "failed to delete record %s", endpointToDelete.DNSName)
-		}
-
-		metrics.DNSOperationsTotal.WithLabelValues("delete", "success").Inc()
-		metrics.DNSOperationDuration.WithLabelValues("delete").Observe(time.Since(start).Seconds())
+	if len(endpoints) == 0 {
+		return nil
 	}
 
-	return nil
+	// Build record index ONCE before parallel operations to avoid N API calls
+	// This is critical for performance: without this, each goroutine would call
+	// ListDNSRecords independently, resulting in N*API_calls instead of 1
+	allRecords, err := p.client.ListDNSRecords(ctx, p.site)
+	if err != nil {
+		return errors.Wrap(err, "failed to list DNS records for deletion")
+	}
+
+	recordIndex := buildRecordIndex(allRecords)
+
+	return p.parallelDeleteWithIndex(ctx, endpoints, recordIndex, "delete")
 }
 
 func (p *UniFiProvider) applyUpdates(ctx context.Context, oldEndpoints, newEndpoints []*endpoint.Endpoint) error {
-	// Delete old records
-	for _, oldEndpoint := range oldEndpoints {
-		start := time.Now()
-
-		err := p.deleteRecord(ctx, oldEndpoint)
-		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
-
-			return errors.Wrapf(err, "failed to delete old record %s", oldEndpoint.DNSName)
-		}
-
-		metrics.DNSOperationDuration.WithLabelValues("update").Observe(time.Since(start).Seconds())
+	if len(oldEndpoints) == 0 && len(newEndpoints) == 0 {
+		return nil
 	}
 
-	// Create new records
-	for _, newEndpoint := range newEndpoints {
-		start := time.Now()
+	// Build record index ONCE for all delete operations
+	var recordIndex map[string][]unifi.DNSRecord
 
-		err := p.createRecord(ctx, newEndpoint)
+	if len(oldEndpoints) > 0 {
+		allRecords, err := p.client.ListDNSRecords(ctx, p.site)
 		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("update", "error").Inc()
-
-			return errors.Wrapf(err, "failed to create updated record %s", newEndpoint.DNSName)
+			return errors.Wrap(err, "failed to list DNS records for update")
 		}
 
-		metrics.DNSOperationsTotal.WithLabelValues("update", "success").Inc()
-		metrics.DNSOperationDuration.WithLabelValues("update").Observe(time.Since(start).Seconds())
+		recordIndex = buildRecordIndex(allRecords)
+
+		// Delete old records in parallel
+		err = p.parallelDeleteWithIndex(ctx, oldEndpoints, recordIndex, "update")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create new records in parallel
+	if len(newEndpoints) > 0 {
+		err := p.parallelCreate(ctx, newEndpoints, "update")
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-//nolint:dupl // applyCreations and applyDeletions are similar but handle different operations
-func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
-	for _, endpointToCreate := range endpoints {
-		start := time.Now()
+// parallelDeleteWithIndex performs parallel deletion using a pre-built record index.
+func (p *UniFiProvider) parallelDeleteWithIndex(ctx context.Context, endpoints []*endpoint.Endpoint, recordIndex map[string][]unifi.DNSRecord, operation string) error {
+	sem := semaphore.NewWeighted(maxConcurrency)
+	errChan := make(chan error, len(endpoints))
 
-		err := p.createRecord(ctx, endpointToCreate)
-		if err != nil {
-			metrics.DNSOperationsTotal.WithLabelValues("create", "error").Inc()
+	var wg sync.WaitGroup
 
-			return errors.Wrapf(err, "failed to create record %s", endpointToCreate.DNSName)
-		}
+	for _, endpointToDelete := range endpoints {
+		wg.Add(1)
 
-		metrics.DNSOperationsTotal.WithLabelValues("create", "success").Inc()
-		metrics.DNSOperationDuration.WithLabelValues("create").Observe(time.Since(start).Seconds())
+		go func(endpointItem *endpoint.Endpoint) {
+			defer wg.Done()
+
+			// Acquire semaphore (blocks if at max concurrency)
+			err := sem.Acquire(ctx, 1)
+			if err != nil {
+				errChan <- errors.Wrap(err, "failed to acquire semaphore")
+
+				return
+			}
+
+			defer sem.Release(1)
+
+			opCtx, cancel := context.WithTimeout(ctx, operationTimeout)
+			defer cancel()
+
+			start := time.Now()
+
+			deleteErr := p.deleteRecordWithIndex(opCtx, endpointItem, recordIndex)
+			if deleteErr != nil {
+				metrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
+
+				errChan <- errors.Wrapf(deleteErr, "failed to delete record %s", endpointItem.DNSName)
+
+				return
+			}
+
+			metrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
+			metrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
+		}(endpointToDelete)
 	}
 
-	return nil
+	wg.Wait()
+	close(errChan)
+
+	return collectErrors(errChan, "parallel deletions")
+}
+
+// parallelCreate performs parallel creation of DNS records.
+func (p *UniFiProvider) parallelCreate(ctx context.Context, endpoints []*endpoint.Endpoint, operation string) error {
+	sem := semaphore.NewWeighted(maxConcurrency)
+	errChan := make(chan error, len(endpoints))
+
+	var wg sync.WaitGroup
+
+	for _, endpointToCreate := range endpoints {
+		wg.Add(1)
+
+		go func(endpointItem *endpoint.Endpoint) {
+			defer wg.Done()
+
+			// Acquire semaphore (blocks if at max concurrency)
+			err := sem.Acquire(ctx, 1)
+			if err != nil {
+				errChan <- errors.Wrap(err, "failed to acquire semaphore")
+
+				return
+			}
+
+			defer sem.Release(1)
+
+			opCtx, cancel := context.WithTimeout(ctx, operationTimeout)
+			defer cancel()
+
+			start := time.Now()
+
+			createErr := p.createRecord(opCtx, endpointItem)
+			if createErr != nil {
+				metrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
+
+				errChan <- errors.Wrapf(createErr, "failed to create record %s", endpointItem.DNSName)
+
+				return
+			}
+
+			metrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
+			metrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
+		}(endpointToCreate)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	return collectErrors(errChan, "parallel creations")
+}
+
+// collectErrors aggregates errors from an error channel into a single error.
+func collectErrors(errChan chan error, operation string) error {
+	//nolint:prealloc // Cannot pre-allocate: len(errChan) returns current queue size, not total errors
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) == 0 {
+		return nil
+	}
+
+	errorMessages := make([]string, len(errs))
+	for idx, err := range errs {
+		errorMessages[idx] = err.Error()
+	}
+
+	//nolint:wrapcheck // Creating new aggregate error from collected errors
+	return errors.Newf("%s failed: %d errors occurred: %v", operation, len(errs), errorMessages)
+}
+
+func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	return p.parallelCreate(ctx, endpoints, "create")
 }
 
 // unifiToEndpoint converts a UniFi DNS record to an endpoint.
@@ -342,13 +438,11 @@ func (p *UniFiProvider) createRecord(ctx context.Context, endpointToCreate *endp
 	return nil
 }
 
-// deleteRecord deletes a DNS record from UniFi.
-func (p *UniFiProvider) deleteRecord(ctx context.Context, endpointToDelete *endpoint.Endpoint) error {
-	// First, we need to find the record ID
-	records, err := p.findRecordsByName(ctx, endpointToDelete.DNSName)
-	if err != nil {
-		return errors.Wrap(err, "failed to find records")
-	}
+// deleteRecordWithIndex deletes a DNS record using a pre-built index.
+// This avoids repeated API calls to list all records, significantly improving
+// performance for batch operations (10+ records: 2-5s -> 200-400ms).
+func (p *UniFiProvider) deleteRecordWithIndex(ctx context.Context, endpointToDelete *endpoint.Endpoint, recordIndex map[string][]unifi.DNSRecord) error {
+	records := recordIndex[endpointToDelete.DNSName]
 
 	if len(records) == 0 {
 		slog.WarnContext(ctx, "record not found for deletion", "name", endpointToDelete.DNSName)
@@ -372,20 +466,14 @@ func (p *UniFiProvider) deleteRecord(ctx context.Context, endpointToDelete *endp
 	return nil
 }
 
-// findRecordsByName finds all DNS records with the given name.
-func (p *UniFiProvider) findRecordsByName(ctx context.Context, name string) ([]unifi.DNSRecord, error) {
-	records, err := p.client.ListDNSRecords(ctx, p.site)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list DNS records")
-	}
-
-	var matching []unifi.DNSRecord
+// buildRecordIndex creates a map index of DNS records by name.
+// This allows O(1) lookup instead of O(N) linear search.
+func buildRecordIndex(records []unifi.DNSRecord) map[string][]unifi.DNSRecord {
+	index := make(map[string][]unifi.DNSRecord, len(records))
 
 	for _, record := range records {
-		if record.Key == name {
-			matching = append(matching, record)
-		}
+		index[record.Key] = append(index[record.Key], record)
 	}
 
-	return matching, nil
+	return index
 }

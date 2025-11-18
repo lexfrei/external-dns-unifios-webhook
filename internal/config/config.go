@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -41,6 +42,12 @@ type LoggingConfig struct {
 	Format string `mapstructure:"format"`
 }
 
+// DebugConfig contains debug/profiling settings.
+type DebugConfig struct {
+	PprofEnabled bool   `mapstructure:"pprof_enabled"`
+	PprofPort    string `mapstructure:"pprof_port"`
+}
+
 // Config represents the complete application configuration.
 type Config struct {
 	UniFi        UniFiConfig        `mapstructure:"unifi"`
@@ -48,6 +55,7 @@ type Config struct {
 	Health       HealthConfig       `mapstructure:"health"`
 	DomainFilter DomainFilterConfig `mapstructure:"domain_filter"`
 	Logging      LoggingConfig      `mapstructure:"logging"`
+	Debug        DebugConfig        `mapstructure:"debug"`
 }
 
 // Load loads configuration from environment variables and config files.
@@ -72,6 +80,8 @@ func Load() (*Config, error) {
 	_ = viperConfig.BindEnv("health.port", "WEBHOOK_HEALTH_PORT")
 	_ = viperConfig.BindEnv("logging.level", "WEBHOOK_LOGGING_LEVEL")
 	_ = viperConfig.BindEnv("logging.format", "WEBHOOK_LOGGING_FORMAT")
+	_ = viperConfig.BindEnv("debug.pprof_enabled", "WEBHOOK_DEBUG_PPROF_ENABLED")
+	_ = viperConfig.BindEnv("debug.pprof_port", "WEBHOOK_DEBUG_PPROF_PORT")
 
 	// Try to read config file
 	viperConfig.SetConfigName("config")
@@ -96,16 +106,41 @@ func Load() (*Config, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal config")
 	}
 
-	// Validate required configuration
-	if cfg.UniFi.Host == "" {
-		return nil, errors.New("WEBHOOK_UNIFI_HOST is required")
-	}
-
-	if cfg.UniFi.APIKey == "" {
-		return nil, errors.New("WEBHOOK_UNIFI_API_KEY is required")
+	// Validate configuration
+	err = validate(&cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+// validate validates the configuration.
+func validate(cfg *Config) error {
+	// Validate required configuration
+	if cfg.UniFi.Host == "" {
+		return errors.New("WEBHOOK_UNIFI_HOST is required")
+	}
+
+	if cfg.UniFi.APIKey == "" {
+		return errors.New("WEBHOOK_UNIFI_API_KEY is required")
+	}
+
+	// Validate pprof port if pprof is enabled
+	if cfg.Debug.PprofEnabled {
+		port, err := strconv.Atoi(cfg.Debug.PprofPort)
+		if err != nil {
+			//nolint:wrapcheck // Creating new error, not wrapping
+			return errors.Newf("WEBHOOK_DEBUG_PPROF_PORT must be a valid number, got: %s", cfg.Debug.PprofPort)
+		}
+
+		if port < 1024 || port > 65535 {
+			//nolint:wrapcheck // Creating new error, not wrapping
+			return errors.Newf("WEBHOOK_DEBUG_PPROF_PORT must be between 1024 and 65535, got: %d", port)
+		}
+	}
+
+	return nil
 }
 
 // setDefaults sets default configuration values.
@@ -119,11 +154,15 @@ func setDefaults(viperConfig *viper.Viper) {
 	viperConfig.SetDefault("server.host", "localhost")
 	viperConfig.SetDefault("server.port", "8888")
 
-	// Health defaults
+	// Health defaults (metrics and probes exposed for external monitoring)
 	viperConfig.SetDefault("health.host", "0.0.0.0")
 	viperConfig.SetDefault("health.port", "8080")
 
 	// Logging defaults
 	viperConfig.SetDefault("logging.level", "info")
 	viperConfig.SetDefault("logging.format", "json")
+
+	// Debug defaults
+	viperConfig.SetDefault("debug.pprof_enabled", false)
+	viperConfig.SetDefault("debug.pprof_port", "6060")
 }

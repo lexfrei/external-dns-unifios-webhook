@@ -47,6 +47,33 @@ var (
 		},
 		[]string{"change_type"}, // change_type: create/update/delete
 	)
+
+	// ReadinessCacheHits tracks the number of readiness cache hits.
+	ReadinessCacheHits = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "readiness_cache_hits_total",
+			Help:      "Total number of readiness cache hits",
+		},
+	)
+
+	// ReadinessCacheMisses tracks the number of readiness cache misses.
+	ReadinessCacheMisses = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "readiness_cache_misses_total",
+			Help:      "Total number of readiness cache misses",
+		},
+	)
+
+	// ReadinessCacheAge tracks the age of the readiness cache in seconds.
+	ReadinessCacheAge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "readiness_cache_age_seconds",
+			Help:      "Age of the readiness cache in seconds",
+		},
+	)
 )
 
 // Register registers all custom metrics with the given Prometheus registry.
@@ -56,5 +83,8 @@ func Register(registry *prometheus.Registry) {
 		DNSOperationDuration,
 		DNSRecordsManaged,
 		DNSChangesApplied,
+		ReadinessCacheHits,
+		ReadinessCacheMisses,
+		ReadinessCacheAge,
 	)
 }
