@@ -14,6 +14,16 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+//nolint:gochecknoglobals // sync.Pool must be global for effective reuse across requests
+var (
+	// healthResponsePool reuses HealthStatus responses to reduce allocations.
+	healthResponsePool = sync.Pool{
+		New: func() any {
+			return &health.HealthStatus{}
+		},
+	}
+)
+
 // readinessCache stores the cached result of readiness checks.
 type readinessCache struct {
 	isReady   bool
@@ -49,10 +59,15 @@ func (s *Server) Liveness(w http.ResponseWriter, _ *http.Request) {
 	status := health.Ok
 	message := "Service is alive"
 
-	response := health.HealthStatus{
-		Status:  &status,
-		Message: &message,
+	response, ok := healthResponsePool.Get().(*health.HealthStatus)
+	if !ok {
+		response = &health.HealthStatus{}
 	}
+
+	defer healthResponsePool.Put(response)
+
+	response.Status = &status
+	response.Message = &message
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -147,10 +162,15 @@ func (s *Server) writeReadinessResponse(w http.ResponseWriter, isReady bool) {
 		message = "Service is not ready"
 	}
 
-	response := health.HealthStatus{
-		Status:  &statusValue,
-		Message: &message,
+	response, ok := healthResponsePool.Get().(*health.HealthStatus)
+	if !ok {
+		response = &health.HealthStatus{}
 	}
+
+	defer healthResponsePool.Put(response)
+
+	response.Status = &statusValue
+	response.Message = &message
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

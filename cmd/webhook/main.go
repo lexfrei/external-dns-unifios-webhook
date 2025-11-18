@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof" // Register pprof handlers
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,8 +52,8 @@ func run() error {
 	slog.Info("starting external-dns-unifios-webhook",
 		"unifi_host", cfg.UniFi.Host,
 		"unifi_site", cfg.UniFi.Site,
-		"webhook_addr", fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
-		"health_addr", fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port))
+		"webhook_addr", joinHostPort(cfg.Server.Host, cfg.Server.Port),
+		"health_addr", joinHostPort(cfg.Health.Host, cfg.Health.Port))
 
 	// Create Prometheus registry for custom metrics
 	registry := prometheus.NewRegistry()
@@ -112,7 +113,7 @@ func run() error {
 	})
 
 	webhookHTTPServer := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
+		Addr:              joinHostPort(cfg.Server.Host, cfg.Server.Port),
 		Handler:           webhookRouter,
 		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
 		ReadHeaderTimeout: 5 * time.Second,   // Time to read request headers only
@@ -129,7 +130,7 @@ func run() error {
 	health.HandlerFromMux(healthSrv, healthRouter)
 
 	healthHTTPServer := &http.Server{
-		Addr:              fmt.Sprintf("%s:%s", cfg.Health.Host, cfg.Health.Port),
+		Addr:              joinHostPort(cfg.Health.Host, cfg.Health.Port),
 		Handler:           healthRouter,
 		ReadTimeout:       5 * time.Second,  // Health checks are quick
 		ReadHeaderTimeout: 2 * time.Second,  // Headers should arrive fast
@@ -243,4 +244,16 @@ func setupLogging(cfg config.LoggingConfig) {
 	}
 
 	slog.SetDefault(slog.New(handler))
+}
+
+// joinHostPort efficiently concatenates host and port using strings.Builder.
+// This is more efficient than fmt.Sprintf for simple string concatenation.
+func joinHostPort(host, port string) string {
+	var sb strings.Builder
+	sb.Grow(len(host) + 1 + len(port)) // Pre-allocate: host + ":" + port
+	sb.WriteString(host)
+	sb.WriteByte(':')
+	sb.WriteString(port)
+
+	return sb.String()
 }
