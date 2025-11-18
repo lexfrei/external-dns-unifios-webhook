@@ -1,0 +1,8 @@
+# Markdown linting configuration
+# Technical documentation requires longer lines for URLs, code examples, and technical content
+
+# Disable line length rule - technical documentation often needs longer lines
+MD013: false
+
+# Allow inline HTML for badges, special formatting
+MD033: false

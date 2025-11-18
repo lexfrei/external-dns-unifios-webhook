@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is an external-dns webhook provider for UniFi OS DNS management. It enables automatic DNS record management in UniFi controllers (Dream Machine, Cloud Key, etc.) from Kubernetes using external-dns.
 
 **Key technologies:**
+
 - Go 1.25.4
 - OpenAPI code generation (oapi-codegen)
 - UniFi API client: github.com/lexfrei/go-unifi
@@ -57,6 +58,7 @@ golangci-lint run --fix
 ```
 
 **CRITICAL:** ALL linting errors must be fixed before pushing. See `.golangci.yaml` for configuration. Notable settings:
+
 - Function length limit: 60 lines/statements (funlen)
 - Cyclomatic complexity: 15 (gocyclo, cyclop)
 - Minimum variable name length: 3 characters (varnamelen)
@@ -192,11 +194,13 @@ When creating Pull Requests, follow these strict guidelines:
 ## Architecture
 
 ### Entry Point
+
 - `cmd/webhook/main.go` - Application entry point, server initialization, graceful shutdown
 
 ### Core Components
 
 **Provider Layer** (`internal/provider/`)
+
 - `provider.go` - Core UniFi DNS provider implementation
 - `interface.go` - Provider interface definition for dependency injection
 - Implements external-dns provider interface: `Records()`, `ApplyChanges()`, `AdjustEndpoints()`, `GetDomainFilter()`
@@ -204,16 +208,19 @@ When creating Pull Requests, follow these strict guidelines:
 - Record index caching to avoid N*API_calls problem during batch operations
 
 **Configuration** (`internal/config/`)
+
 - `config.go` - Viper-based configuration with environment variable binding
 - All env vars prefixed with `WEBHOOK_` (e.g., `WEBHOOK_UNIFI_HOST`)
 - Supports nested configuration via dots: `unifi.api_key` → `WEBHOOK_UNIFI_API_KEY`
 
 **HTTP Servers** (`internal/webhookserver/`, `internal/healthserver/`)
+
 - Separate servers for webhook API (localhost:8888) and health/metrics (0.0.0.0:8080)
 - OpenAPI-generated handlers from `api/webhook/openapi.yaml` and `api/health/openapi.yaml`
 - Generated code in `api/*/generated.go` (do NOT edit manually)
 
 **Observability** (`internal/observability/`, `internal/metrics/`)
+
 - `slog_adapter.go` - Adapts slog to UniFi client logger interface
 - `prometheus_recorder.go` - Adapts Prometheus to UniFi client metrics interface
 - `metrics.go` - Custom Prometheus metrics for DNS operations
@@ -222,24 +229,29 @@ When creating Pull Requests, follow these strict guidelines:
 ### Important Implementation Details
 
 **Performance Optimization:**
+
 - Provider uses `buildRecordIndex()` to create in-memory map of DNS records by name before parallel operations
 - This prevents N*API_calls problem: without index, each deletion would call ListDNSRecords independently
 - With index: 1 ListDNSRecords call + N parallel deletes (10+ records: 2-5s → 200-400ms)
 
 **UniFi API Specifics:**
+
 - TXT records do NOT support TTL field (UniFi API limitation)
 - Creates separate DNS records for multi-target endpoints (enables round-robin DNS)
 - Default TTL: 300 seconds
 
 **Record Type Mapping:**
+
 - Supports: A, AAAA, CNAME, MX, NS, SRV, TXT
 - Maps between external-dns types and UniFi API types
 
 **Error Handling:**
+
 - Uses cockroachdb/errors for error wrapping with stack traces
 - Parallel operations collect errors in channel and aggregate them
 
 **External-DNS Retry Behavior:**
+
 - External-dns ONLY retries on 5xx (server errors) and 429 (Too Many Requests)
 - 4xx errors (client errors) are NOT retried - considered permanent failures
 - This includes:
@@ -253,6 +265,7 @@ When creating Pull Requests, follow these strict guidelines:
 ## Code Generation
 
 **OpenAPI code generation:**
+
 ```bash
 # API definitions are in api/*/openapi.yaml
 # Generated code goes to api/*/generated.go
@@ -264,10 +277,12 @@ When creating Pull Requests, follow these strict guidelines:
 ## Configuration
 
 **Required environment variables:**
+
 - `WEBHOOK_UNIFI_HOST` - UniFi controller URL (must be IP, not hostname like unifi.local)
 - `WEBHOOK_UNIFI_API_KEY` - API key from UniFi controller
 
 **Optional environment variables:**
+
 - `WEBHOOK_UNIFI_SITE` - UniFi site name (default: "default")
 - `WEBHOOK_UNIFI_SKIP_TLS_VERIFY` - Skip TLS verification (default: true)
 - `WEBHOOK_SERVER_HOST` - Webhook bind address (default: "localhost")
@@ -282,6 +297,7 @@ When creating Pull Requests, follow these strict guidelines:
 ## CI/CD Workflows
 
 **PR Workflow** (`.github/workflows/pr.yaml`):
+
 1. Lint with golangci-lint
 2. Test with race detection and coverage
 3. Build multi-arch containers (linux/amd64, linux/arm64) using native ARM64 runners
@@ -289,16 +305,19 @@ When creating Pull Requests, follow these strict guidelines:
 5. Cleanup PR image when PR is closed
 
 **Release Workflow** (`.github/workflows/release.yaml`):
+
 - Triggered on version tags
 - Builds and publishes release containers
 
 ## Testing Strategy
 
 **Test packages:**
+
 - `internal/provider/provider_test.go` - Provider unit tests with mock UniFi client
 - `internal/healthserver/server_test.go` - Health server tests with readiness cache
 
 **Test conventions:**
+
 - Use table-driven tests with `tt` variable for test case
 - Mock external dependencies (UniFi API client) via interfaces
 - Same-package tests allowed when testing private functions/types (see `//nolint:testpackage` comments)
@@ -306,6 +325,7 @@ When creating Pull Requests, follow these strict guidelines:
 ## Dependencies
 
 **Key external dependencies:**
+
 - `github.com/lexfrei/go-unifi/api/network` - UniFi API client (custom library)
 - `sigs.k8s.io/external-dns` - External DNS types and interfaces
 - `github.com/go-chi/chi/v5` - HTTP router
@@ -318,18 +338,21 @@ When creating Pull Requests, follow these strict guidelines:
 ## Common Development Patterns
 
 **Adding new DNS record type:**
+
 1. Add mapping in `unifiToEndpoint()` (UniFi → endpoint)
 2. Add mapping in `endpointToUniFiWithTarget()` (endpoint → UniFi)
 3. Check UniFi API constraints (e.g., TXT records have no TTL)
 4. Add test cases in `provider_test.go`
 
 **Adding new metrics:**
+
 1. Define metric in `internal/metrics/metrics.go`
 2. Register in `Register()` function
 3. Update metric in appropriate provider method
 4. Test metric presence in health endpoint
 
 **Adding new configuration:**
+
 1. Add field to config struct in `internal/config/config.go`
 2. Add `BindEnv()` call for environment variable
 3. Add default in `setDefaults()`
@@ -339,6 +362,7 @@ When creating Pull Requests, follow these strict guidelines:
 ## Container Image
 
 **Build process:**
+
 - Multi-stage build using golang:1.25-alpine
 - Binary compressed with UPX (--best --lzma)
 - Final image FROM scratch (minimal attack surface)
@@ -346,6 +370,7 @@ When creating Pull Requests, follow these strict guidelines:
 - Includes only binary and CA certificates
 
 **Image location:**
+
 - Production: `ghcr.io/lexfrei/external-dns-unifios-webhook:latest`
 - PR images: `ghcr.io/lexfrei/external-dns-unifios-webhook:pr-<number>`
 - Release tags: `ghcr.io/lexfrei/external-dns-unifios-webhook:v1.0.0`
@@ -363,6 +388,7 @@ Follow Semantic Versioning (semver) with pre-1.0 conventions:
 - **0.x.y → (x+1).0.0** - Major releases (breaking changes, significant API changes)
 
 **Version decision criteria:**
+
 - Bug fixes only → PATCH bump
 - New features, performance improvements, or dependency updates → MINOR bump
 - Breaking changes or major API changes → MAJOR bump
@@ -372,6 +398,7 @@ Follow Semantic Versioning (semver) with pre-1.0 conventions:
 Release notes must follow the established project format for consistency.
 
 **Structure:**
+
 ```markdown
 Brief introduction (1-2 sentences about the release focus)
 
@@ -397,6 +424,7 @@ None. (or list specific breaking changes)
 ```
 
 **Style guidelines:**
+
 - **Introduction**: One brief sentence about the release theme/focus
 - **Category headers**: Bold, descriptive (e.g., "Performance Optimizations", "Memory Leak Fix", "Enhanced Capacity")
 - **Bullet points**: Focus on user-visible impact, not implementation details
@@ -408,6 +436,7 @@ None. (or list specific breaking changes)
 - **Avoid specifics**: General terms like "significantly faster" instead of "81% faster"
 
 **Example categories used:**
+
 - Memory Leak Fix
 - Performance Optimizations
 - Enhanced Capacity
@@ -421,6 +450,7 @@ None. (or list specific breaking changes)
 ### Release Workflow
 
 **Prerequisites:**
+
 - All changes merged to master branch
 - All tests passing
 - All linters passing
@@ -429,6 +459,7 @@ None. (or list specific breaking changes)
 **Steps:**
 
 1. **Determine version number**
+
    ```bash
    # Check last tag
    git tag --list --sort=-v:refname | head -5
@@ -446,6 +477,7 @@ None. (or list specific breaking changes)
    - Review previous releases for consistency: `gh release view v{VERSION}`
 
 3. **Create signed tag**
+
    ```bash
    # CRITICAL: ALWAYS use --sign flag, NEVER use --annotate
    git tag --sign v{VERSION} --message "$(cat <<'EOF'
@@ -460,6 +492,7 @@ None. (or list specific breaking changes)
    ```
 
 4. **Push tag**
+
    ```bash
    git push origin v{VERSION}
    ```
@@ -471,6 +504,7 @@ None. (or list specific breaking changes)
    - Monitor: `gh run list --workflow=release.yaml`
 
 6. **Update release notes**
+
    ```bash
    # After CI creates release, update with prepared release notes
    gh release edit v{VERSION} --notes "$(cat <<'EOF'
@@ -483,6 +517,7 @@ None. (or list specific breaking changes)
    ```
 
 **Important reminders:**
+
 - ALWAYS sign tags with `--sign` flag (GPG signing required)
 - NEVER use `--annotate` or `-a` flags (creates unsigned tags)
 - Release notes must be in English (public content requirement)
