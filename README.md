@@ -153,7 +153,7 @@ provider:
 | `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`| Skip TLS certificate verification                | `true`      |
 | `WEBHOOK_SERVER_HOST`          | Webhook server bind address                      | `localhost` |
 | `WEBHOOK_SERVER_PORT`          | Webhook server port                              | `8888`      |
-| `WEBHOOK_HEALTH_HOST`          | Health server bind address                       | `localhost` |
+| `WEBHOOK_HEALTH_HOST`          | Health server bind address                       | `0.0.0.0`   |
 | `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
 | `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
 | `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
