@@ -33,6 +33,11 @@ jobs:
           version: latest
           args: --timeout=5m
 
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          globs: '**/*.md'
+
   test:
     name: Test
     if: github.event.action != 'closed'

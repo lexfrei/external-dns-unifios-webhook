@@ -52,22 +52,53 @@ Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-
 
 ## 🚫 Limitations
 
+### DNS Backend Limitations
+
 UniFi uses [dnsmasq](https://dnsmasq.org) as the backend for its DNS resolver. This project is subject to dnsmasq limitations.
 
 **Unsupported configurations:**
 
 - Wildcard CNAME records
-  ```
+
+  ```text
   *.example.com  IN CNAME  target.example.com  # NOT SUPPORTED
   ```
 
 - Duplicate CNAME records
-  ```
+
+  ```text
   app.example.com  IN CNAME  internal.example.com
   app.example.com  IN CNAME  external.example.com  # NOT SUPPORTED
   ```
 
 If you encounter issues with DNS record creation, verify your configuration against these limitations.
+
+### Request Body Size Limit
+
+The webhook has a **5MB request body limit** to prevent memory exhaustion attacks and ensure stable operation.
+
+**Practical implications:**
+
+- Supports approximately **~25,000 DNS records** per request
+- Based on production deployments with 20,000+ records
+
+**Why this limit exists:**
+
+- Prevents unbounded memory allocation from malicious or misconfigured requests
+- Ensures predictable memory usage and system stability
+- External-dns batches operations automatically, so this limit rarely impacts normal usage
+
+**If you hit this limit:**
+
+This limit is intentionally conservative. Real-world production deployments with 20,000+ DNS records operate well within this boundary. However, if you have a legitimate use case requiring larger batches:
+
+1. [Open an issue](https://github.com/lexfrei/external-dns-unifios-webhook/issues) describing your environment:
+   - Number of DNS records being managed
+   - Cluster size and workload type
+   - Memory/performance characteristics observed
+2. We'll evaluate increasing the limit based on real-world requirements
+
+The current limit balances security, stability, and practical needs. Feedback from production usage helps us optimize these boundaries.
 
 ## 🚀 Installation
 
@@ -78,12 +109,14 @@ Deploy external-dns with this webhook provider using the official external-dns H
 **Prerequisites:**
 
 1. Add external-dns Helm repository:
+
    ```bash
    helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
    helm repo update
    ```
 
 2. Create namespace and secret with UniFi API key:
+
    ```bash
    kubectl create namespace external-dns-unifi
    kubectl create secret generic unifi-credentials \
@@ -93,38 +126,38 @@ Deploy external-dns with this webhook provider using the official external-dns H
 
 3. Create `values.yaml` with webhook configuration:
 
-```yaml
-# This is a minimal configuration snippet for the webhook provider.
-# You are responsible for configuring other external-dns values according to your needs
-# (e.g., domainFilters, policy, interval, sources, etc.).
-# See https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns for all options.
-provider:
-  name: webhook
-  webhook:
-    image:
-      repository: ghcr.io/lexfrei/external-dns-unifios-webhook
-      tag: latest  # Recommended: pin to a specific version (e.g., v1.0.0)
-    env:
-      - name: WEBHOOK_UNIFI_API_KEY
-        valueFrom:
-          secretKeyRef:
-            name: unifi-credentials
-            key: api-key
-      - name: WEBHOOK_UNIFI_HOST
-        value: "https://192.168.1.1"
-    livenessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 10
-    readinessProbe:
-      httpGet:
-        path: /readyz
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 10
-```
+   ```yaml
+   # This is a minimal configuration snippet for the webhook provider.
+   # You are responsible for configuring other external-dns values according to your needs
+   # (e.g., domainFilters, policy, interval, sources, etc.).
+   # See https://github.com/kubernetes-sigs/external-dns/tree/master/charts/external-dns for all options.
+   provider:
+     name: webhook
+     webhook:
+       image:
+         repository: ghcr.io/lexfrei/external-dns-unifios-webhook
+         tag: latest  # Recommended: pin to a specific version (e.g., v1.0.0)
+       env:
+         - name: WEBHOOK_UNIFI_API_KEY
+           valueFrom:
+             secretKeyRef:
+               name: unifi-credentials
+               key: api-key
+         - name: WEBHOOK_UNIFI_HOST
+           value: "https://192.168.1.1"
+       livenessProbe:
+         httpGet:
+           path: /healthz
+           port: 8080
+         initialDelaySeconds: 10
+         periodSeconds: 10
+       readinessProbe:
+         httpGet:
+           path: /readyz
+           port: 8080
+         initialDelaySeconds: 10
+         periodSeconds: 10
+   ```
 
 4. Deploy external-dns with the webhook:
 
