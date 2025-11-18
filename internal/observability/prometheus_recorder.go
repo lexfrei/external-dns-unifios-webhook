@@ -10,14 +10,17 @@ import (
 
 // PrometheusRecorder implements observability.MetricsRecorder using Prometheus.
 type PrometheusRecorder struct {
-	httpRequests *prometheus.CounterVec
-	httpDuration *prometheus.HistogramVec
-	retries      *prometheus.CounterVec
-	rateLimits   *prometheus.CounterVec
-	errors       *prometheus.CounterVec
+	httpRequests         *prometheus.CounterVec
+	httpDuration         *prometheus.HistogramVec
+	retries              *prometheus.CounterVec
+	rateLimits           *prometheus.CounterVec
+	errors               *prometheus.CounterVec
+	contextCancellations *prometheus.CounterVec
 }
 
 // NewPrometheusRecorder creates a new PrometheusRecorder and registers metrics with the given registry.
+//
+//nolint:funlen // Constructor initializes multiple metrics - length is acceptable for clarity
 func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *PrometheusRecorder {
 	r := &PrometheusRecorder{
 		httpRequests: prometheus.NewCounterVec(
@@ -61,6 +64,14 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 			},
 			[]string{"operation", "error_type"},
 		),
+		contextCancellations: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "unifi_api_context_cancellations_total",
+				Help:      "Total number of UniFi API context cancellations",
+			},
+			[]string{"operation"},
+		),
 	}
 
 	registry.MustRegister(
@@ -69,6 +80,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 		r.retries,
 		r.rateLimits,
 		r.errors,
+		r.contextCancellations,
 	)
 
 	return r
@@ -93,6 +105,11 @@ func (r *PrometheusRecorder) RecordRateLimit(endpoint string, _ time.Duration) {
 // RecordError records an error occurrence.
 func (r *PrometheusRecorder) RecordError(operation, errorType string) {
 	r.errors.WithLabelValues(operation, errorType).Inc()
+}
+
+// RecordContextCancellation records a context cancellation event.
+func (r *PrometheusRecorder) RecordContextCancellation(operation string) {
+	r.contextCancellations.WithLabelValues(operation).Inc()
 }
 
 // Ensure PrometheusRecorder implements observability.MetricsRecorder.
