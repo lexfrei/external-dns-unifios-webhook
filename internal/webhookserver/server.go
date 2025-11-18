@@ -14,8 +14,8 @@ import (
 
 const (
 	// maxRequestBodySize limits the maximum size of HTTP request body to prevent memory exhaustion.
-	// 1MB is more than sufficient for any DNS record changes request.
-	maxRequestBodySize = 1 << 20 // 1MB
+	// 5MB allows handling ~25,000 DNS records in a single request (observed: 20k records in production).
+	maxRequestBodySize = 5 << 20 // 5MB
 )
 
 // Server implements the webhook.ServerInterface for external-dns webhook protocol.
