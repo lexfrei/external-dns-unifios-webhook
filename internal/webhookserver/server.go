@@ -12,6 +12,12 @@ import (
 	"sigs.k8s.io/external-dns/plan"
 )
 
+const (
+	// maxRequestBodySize limits the maximum size of HTTP request body to prevent memory exhaustion.
+	// 1MB is more than sufficient for any DNS record changes request.
+	maxRequestBodySize = 1 << 20 // 1MB
+)
+
 // Server implements the webhook.ServerInterface for external-dns webhook protocol.
 type Server struct {
 	provider provider.DNSProvider
@@ -76,8 +82,22 @@ func (s *Server) GetRecords(w http.ResponseWriter, r *http.Request, _ webhook.Ge
 func (s *Server) SetRecords(w http.ResponseWriter, r *http.Request, _ webhook.SetRecordsParams) {
 	slog.InfoContext(r.Context(), "set records called", "content_type", r.Header.Get("Content-Type"))
 
+	// Limit request body size to prevent memory exhaustion attacks
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+
 	changes, err := s.decodeChanges(r)
 	if err != nil {
+		// Check if error is due to body size limit
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			slog.WarnContext(r.Context(), "request body too large", "limit_bytes", maxRequestBodySize)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "request body too large"})
+
+			return
+		}
+
 		slog.ErrorContext(r.Context(), "failed to decode changes", "error", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -204,14 +224,15 @@ func convertProviderSpecific(providerSpecific endpoint.ProviderSpecific) *[]webh
 		return nil
 	}
 
-	result := make([]webhook.ProviderSpecificProperty, 0, len(providerSpecific))
-	for _, prop := range providerSpecific {
-		name := prop.Name
-		value := prop.Value
-		result = append(result, webhook.ProviderSpecificProperty{
+	// Pre-allocate exact size and use indexed assignment to eliminate bounds checks
+	result := make([]webhook.ProviderSpecificProperty, len(providerSpecific))
+	for i := range providerSpecific {
+		name := providerSpecific[i].Name
+		value := providerSpecific[i].Value
+		result[i] = webhook.ProviderSpecificProperty{
 			Name:  &name,
 			Value: &value,
-		})
+		}
 	}
 
 	return &result

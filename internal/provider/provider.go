@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"log/slog"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,7 +54,8 @@ func (p *UniFiProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, erro
 	slog.DebugContext(ctx, "received DNS records from UniFi", "total_count", len(records))
 
 	// Convert UniFi DNS records to endpoints
-	var endpoints []*endpoint.Endpoint
+	// Pre-allocate with capacity to avoid reallocations (most records will match filter)
+	endpoints := make([]*endpoint.Endpoint, 0, len(records))
 
 	recordsByType := make(map[string]int)
 
@@ -295,13 +298,24 @@ func collectErrors(errChan chan error, operation string) error {
 		return nil
 	}
 
-	errorMessages := make([]string, len(errs))
-	for idx, err := range errs {
-		errorMessages[idx] = err.Error()
+	// Use strings.Builder for efficient string concatenation
+	var builder strings.Builder
+	builder.WriteString(operation)
+	builder.WriteString(" failed: ")
+	builder.WriteString(strconv.Itoa(len(errs)))
+	builder.WriteString(" errors occurred: [")
+
+	for i, err := range errs {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+
+		builder.WriteString(err.Error())
 	}
 
-	//nolint:wrapcheck // Creating new aggregate error from collected errors
-	return errors.Newf("%s failed: %d errors occurred: %v", operation, len(errs), errorMessages)
+	builder.WriteString("]")
+
+	return errors.New(builder.String())
 }
 
 func (p *UniFiProvider) applyCreations(ctx context.Context, endpoints []*endpoint.Endpoint) error {
@@ -472,6 +486,11 @@ func buildRecordIndex(records []unifi.DNSRecord) map[string][]unifi.DNSRecord {
 	index := make(map[string][]unifi.DNSRecord, len(records))
 
 	for _, record := range records {
+		if existing := index[record.Key]; existing == nil {
+			// First record with this key - pre-allocate capacity for typical case (1-2 targets)
+			index[record.Key] = make([]unifi.DNSRecord, 0, 2)
+		}
+
 		index[record.Key] = append(index[record.Key], record)
 	}
 
