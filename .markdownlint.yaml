@@ -6,6 +6,3 @@ MD013: false
 
 # Allow inline HTML for badges, special formatting
 MD033: false
-
-# Disable table column alignment - too strict for configuration tables
-MD060: false

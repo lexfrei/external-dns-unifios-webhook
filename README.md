@@ -150,25 +150,25 @@ Deploy external-dns with this webhook provider using the official external-dns H
 
 #### Required Parameters
 
-| Environment Variable      | Description                                                          |
-|--------------------------|----------------------------------------------------------------------|
-| `WEBHOOK_UNIFI_HOST`     | UniFi controller URL (use IP address, not hostname like unifi.local) |
-| `WEBHOOK_UNIFI_API_KEY`  | API key from UniFi controller (stored in Kubernetes secret)          |
+| Environment Variable    | Description                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| `WEBHOOK_UNIFI_HOST`    | UniFi controller URL (use IP address, not hostname like unifi.local) |
+| `WEBHOOK_UNIFI_API_KEY` | API key from UniFi controller (stored in Kubernetes secret)          |
 
 #### Optional Parameters
 
-| Environment Variable            | Description                                      | Default     |
-|--------------------------------|--------------------------------------------------|-------------|
-| `WEBHOOK_UNIFI_SITE`           | UniFi site name                                  | `default`   |
-| `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`| Skip TLS certificate verification                | `true`      |
-| `WEBHOOK_SERVER_HOST`          | Webhook server bind address                      | `localhost` |
-| `WEBHOOK_SERVER_PORT`          | Webhook server port                              | `8888`      |
-| `WEBHOOK_HEALTH_HOST`          | Health server bind address                       | `0.0.0.0`   |
-| `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
-| `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
-| `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
-| `WEBHOOK_DEBUG_PPROF_ENABLED`  | Enable pprof profiling endpoints (DO NOT use in production) | `false` |
-| `WEBHOOK_DEBUG_PPROF_PORT`     | pprof server port (when enabled)                 | `6060`      |
+| Environment Variable             | Description                                                     | Default     |
+| -------------------------------- | --------------------------------------------------------------- | ----------- |
+| `WEBHOOK_UNIFI_SITE`             | UniFi site name                                                 | `default`   |
+| `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`  | Skip TLS certificate verification                               | `true`      |
+| `WEBHOOK_SERVER_HOST`            | Webhook server bind address                                     | `localhost` |
+| `WEBHOOK_SERVER_PORT`            | Webhook server port                                             | `8888`      |
+| `WEBHOOK_HEALTH_HOST`            | Health server bind address                                      | `0.0.0.0`   |
+| `WEBHOOK_HEALTH_PORT`            | Health server port                                              | `8080`      |
+| `WEBHOOK_LOGGING_LEVEL`          | Log level: `debug`, `info`, `warn`, `error`                     | `info`      |
+| `WEBHOOK_LOGGING_FORMAT`         | Log format: `json` or `text`                                    | `json`      |
+| `WEBHOOK_DEBUG_PPROF_ENABLED`    | Enable pprof profiling endpoints (DO NOT use in production)     | `false`     |
+| `WEBHOOK_DEBUG_PPROF_PORT`       | pprof server port (when enabled)                                | `6060`      |
 
 ## 💻 Development
 
