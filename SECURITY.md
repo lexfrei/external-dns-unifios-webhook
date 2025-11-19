@@ -15,7 +15,7 @@ We release patches for security vulnerabilities for the following versions:
 
 If you discover a security vulnerability, please send an email to:
 
-**f@lex.la**
+**<f@lex.la>**
 
 Please include the following information in your report:
 

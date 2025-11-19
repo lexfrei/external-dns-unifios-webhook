@@ -39,7 +39,7 @@ What actually happened.
 <details>
 <summary>Webhook logs</summary>
 
-```
+```text
 Paste webhook logs here (kubectl logs ...)
 ```
 
@@ -48,7 +48,7 @@ Paste webhook logs here (kubectl logs ...)
 <details>
 <summary>External-DNS logs (if relevant)</summary>
 
-```
+```text
 Paste external-dns logs here
 ```
 
