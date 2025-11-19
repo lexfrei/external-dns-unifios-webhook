@@ -75,30 +75,7 @@ If you encounter issues with DNS record creation, verify your configuration agai
 
 ### Request Body Size Limit
 
-The webhook has a **5MB request body limit** to prevent memory exhaustion attacks and ensure stable operation.
-
-**Practical implications:**
-
-- Supports approximately **~25,000 DNS records** per request
-- Based on production deployments with 20,000+ records
-
-**Why this limit exists:**
-
-- Prevents unbounded memory allocation from malicious or misconfigured requests
-- Ensures predictable memory usage and system stability
-- External-dns batches operations automatically, so this limit rarely impacts normal usage
-
-**If you hit this limit:**
-
-This limit is intentionally conservative. Real-world production deployments with 20,000+ DNS records operate well within this boundary. However, if you have a legitimate use case requiring larger batches:
-
-1. [Open an issue](https://github.com/lexfrei/external-dns-unifios-webhook/issues) describing your environment:
-   - Number of DNS records being managed
-   - Cluster size and workload type
-   - Memory/performance characteristics observed
-2. We'll evaluate increasing the limit based on real-world requirements
-
-The current limit balances security, stability, and practical needs. Feedback from production usage helps us optimize these boundaries.
+5MB request body limit (~25,000 DNS records). If you hit this limit, [open an issue](https://github.com/lexfrei/external-dns-unifios-webhook/issues).
 
 ## 🚀 Installation
 
@@ -173,25 +150,25 @@ Deploy external-dns with this webhook provider using the official external-dns H
 
 #### Required Parameters
 
-| Environment Variable      | Description                                                          |
-|--------------------------|----------------------------------------------------------------------|
-| `WEBHOOK_UNIFI_HOST`     | UniFi controller URL (use IP address, not hostname like unifi.local) |
-| `WEBHOOK_UNIFI_API_KEY`  | API key from UniFi controller (stored in Kubernetes secret)          |
+| Environment Variable    | Description                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| `WEBHOOK_UNIFI_HOST`    | UniFi controller URL (use IP address, not hostname like unifi.local) |
+| `WEBHOOK_UNIFI_API_KEY` | API key from UniFi controller (stored in Kubernetes secret)          |
 
 #### Optional Parameters
 
-| Environment Variable            | Description                                      | Default     |
-|--------------------------------|--------------------------------------------------|-------------|
-| `WEBHOOK_UNIFI_SITE`           | UniFi site name                                  | `default`   |
-| `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`| Skip TLS certificate verification                | `true`      |
-| `WEBHOOK_SERVER_HOST`          | Webhook server bind address                      | `localhost` |
-| `WEBHOOK_SERVER_PORT`          | Webhook server port                              | `8888`      |
-| `WEBHOOK_HEALTH_HOST`          | Health server bind address                       | `0.0.0.0`   |
-| `WEBHOOK_HEALTH_PORT`          | Health server port                               | `8080`      |
-| `WEBHOOK_LOGGING_LEVEL`        | Log level: `debug`, `info`, `warn`, `error`      | `info`      |
-| `WEBHOOK_LOGGING_FORMAT`       | Log format: `json` or `text`                     | `json`      |
-| `WEBHOOK_DEBUG_PPROF_ENABLED`  | Enable pprof profiling endpoints (DO NOT use in production) | `false` |
-| `WEBHOOK_DEBUG_PPROF_PORT`     | pprof server port (when enabled)                 | `6060`      |
+| Environment Variable             | Description                                                     | Default     |
+| -------------------------------- | --------------------------------------------------------------- | ----------- |
+| `WEBHOOK_UNIFI_SITE`             | UniFi site name                                                 | `default`   |
+| `WEBHOOK_UNIFI_SKIP_TLS_VERIFY`  | Skip TLS certificate verification                               | `true`      |
+| `WEBHOOK_SERVER_HOST`            | Webhook server bind address                                     | `localhost` |
+| `WEBHOOK_SERVER_PORT`            | Webhook server port                                             | `8888`      |
+| `WEBHOOK_HEALTH_HOST`            | Health server bind address                                      | `0.0.0.0`   |
+| `WEBHOOK_HEALTH_PORT`            | Health server port                                              | `8080`      |
+| `WEBHOOK_LOGGING_LEVEL`          | Log level: `debug`, `info`, `warn`, `error`                     | `info`      |
+| `WEBHOOK_LOGGING_FORMAT`         | Log format: `json` or `text`                                    | `json`      |
+| `WEBHOOK_DEBUG_PPROF_ENABLED`    | Enable pprof profiling endpoints (DO NOT use in production)     | `false`     |
+| `WEBHOOK_DEBUG_PPROF_PORT`       | pprof server port (when enabled)                                | `6060`      |
 
 ## 💻 Development
 
