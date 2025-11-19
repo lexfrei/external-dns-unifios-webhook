@@ -75,30 +75,7 @@ If you encounter issues with DNS record creation, verify your configuration agai
 
 ### Request Body Size Limit
 
-The webhook has a **5MB request body limit** to prevent memory exhaustion attacks and ensure stable operation.
-
-**Practical implications:**
-
-- Supports approximately **~25,000 DNS records** per request
-- Based on production deployments with 20,000+ records
-
-**Why this limit exists:**
-
-- Prevents unbounded memory allocation from malicious or misconfigured requests
-- Ensures predictable memory usage and system stability
-- External-dns batches operations automatically, so this limit rarely impacts normal usage
-
-**If you hit this limit:**
-
-This limit is intentionally conservative. Real-world production deployments with 20,000+ DNS records operate well within this boundary. However, if you have a legitimate use case requiring larger batches:
-
-1. [Open an issue](https://github.com/lexfrei/external-dns-unifios-webhook/issues) describing your environment:
-   - Number of DNS records being managed
-   - Cluster size and workload type
-   - Memory/performance characteristics observed
-2. We'll evaluate increasing the limit based on real-world requirements
-
-The current limit balances security, stability, and practical needs. Feedback from production usage helps us optimize these boundaries.
+5MB request body limit (~25,000 DNS records). If you hit this limit, [open an issue](https://github.com/lexfrei/external-dns-unifios-webhook/issues).
 
 ## 🚀 Installation
 
