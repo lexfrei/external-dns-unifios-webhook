@@ -1,6 +1,6 @@
 package: health
 output: api/health/generated.go
 generate:
-  chi-server: true
+  std-http-server: true
   models: true
   embedded-spec: true
