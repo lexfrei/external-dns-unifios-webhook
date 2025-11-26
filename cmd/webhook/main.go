@@ -13,14 +13,12 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/httplog/v3"
 	"github.com/lexfrei/external-dns-unifios-webhook/api/health"
 	"github.com/lexfrei/external-dns-unifios-webhook/api/webhook"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/healthserver"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/middleware"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/observability"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/webhookserver"
@@ -92,9 +90,7 @@ func run() error {
 
 	// Create webhook server
 	webhookSrv := webhookserver.New(prov, *domainFilter)
-	webhookRouter := chi.NewRouter()
-	webhookRouter.Use(httplog.RequestLogger(slog.Default(), &httplog.Options{}))
-	webhookRouter.Use(middleware.Recoverer)
+	webhookMux := http.NewServeMux()
 
 	// Custom error handler with detailed logging
 	errorHandler := func(w http.ResponseWriter, r *http.Request, err error) {
@@ -107,14 +103,16 @@ func run() error {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	webhook.HandlerWithOptions(webhookSrv, webhook.ChiServerOptions{
-		BaseRouter:       webhookRouter,
+	webhook.HandlerWithOptions(webhookSrv, webhook.StdHTTPServerOptions{
+		BaseRouter:       webhookMux,
 		ErrorHandlerFunc: errorHandler,
 	})
 
+	webhookHandler := middleware.Logging(webhookMux)
+
 	webhookHTTPServer := &http.Server{
 		Addr:              joinHostPort(cfg.Server.Host, cfg.Server.Port),
-		Handler:           webhookRouter,
+		Handler:           webhookHandler,
 		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
 		ReadHeaderTimeout: 5 * time.Second,   // Time to read request headers only
 		WriteTimeout:      60 * time.Second,  // Time to write response (allows batch operations)
@@ -124,14 +122,13 @@ func run() error {
 
 	// Create health server with custom registry
 	healthSrv := healthserver.New(prov, registry)
-	healthRouter := chi.NewRouter()
-	healthRouter.Use(httplog.RequestLogger(slog.Default(), &httplog.Options{}))
-	healthRouter.Use(middleware.Recoverer)
-	health.HandlerFromMux(healthSrv, healthRouter)
+	healthMux := http.NewServeMux()
+	health.HandlerFromMux(healthSrv, healthMux)
+	healthHandler := middleware.Logging(healthMux)
 
 	healthHTTPServer := &http.Server{
 		Addr:              joinHostPort(cfg.Health.Host, cfg.Health.Port),
-		Handler:           healthRouter,
+		Handler:           healthHandler,
 		ReadTimeout:       5 * time.Second,  // Health checks are quick
 		ReadHeaderTimeout: 2 * time.Second,  // Headers should arrive fast
 		WriteTimeout:      10 * time.Second, // Response writing timeout

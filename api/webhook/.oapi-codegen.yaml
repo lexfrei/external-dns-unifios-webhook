@@ -1,6 +1,6 @@
 package: webhook
 output: api/webhook/generated.go
 generate:
-  chi-server: true
+  std-http-server: true
   models: true
   embedded-spec: true
