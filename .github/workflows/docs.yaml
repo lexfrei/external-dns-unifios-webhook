@@ -91,11 +91,20 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          # mike builds into gh-pages branch worktree
-          # Copy the built site to artifact directory
+          # mike commits to gh-pages branch
+          # If worktree was detached (first run), switch it to gh-pages
           mkdir -p artifact
-          git -C gh-pages-branch checkout -- . 2>/dev/null || true
-          cp -r gh-pages-branch/* artifact/ 2>/dev/null || cp -r site/* artifact/
+          if git -C gh-pages-branch rev-parse --verify gh-pages >/dev/null 2>&1; then
+            git -C gh-pages-branch checkout gh-pages 2>/dev/null || true
+            git -C gh-pages-branch reset --hard gh-pages 2>/dev/null || true
+          fi
+          # Copy built site to artifact directory
+          if [ -f gh-pages-branch/index.html ]; then
+            cp -r gh-pages-branch/* artifact/
+          else
+            # Fallback: use mkdocs build output directly
+            cp -r site/* artifact/
+          fi
           # Copy 404.html to root for GitHub Pages fallback redirects
           cp docs/404.html artifact/404.html
 
