@@ -1,0 +1,50 @@
+/* UniFi brand colors */
+:root {
+  --md-primary-fg-color: #0559C9;
+  --md-primary-fg-color--light: #3b7fd9;
+  --md-primary-fg-color--dark: #044a9e;
+  --md-accent-fg-color: #0559C9;
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #3b7fd9;
+  --md-accent-fg-color: #5a9be6;
+}
+
+/* Custom admonition for UniFi-specific notes */
+.md-typeset .admonition.unifi,
+.md-typeset details.unifi {
+  border-color: #0559C9;
+}
+
+.md-typeset .unifi > .admonition-title,
+.md-typeset .unifi > summary {
+  background-color: rgba(5, 89, 201, 0.1);
+}
+
+.md-typeset .unifi > .admonition-title::before,
+.md-typeset .unifi > summary::before {
+  background-color: #0559C9;
+  -webkit-mask-image: var(--md-admonition-icon--info);
+  mask-image: var(--md-admonition-icon--info);
+}
+
+/* Code block styling */
+.md-typeset code {
+  background-color: rgba(5, 89, 201, 0.1);
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(90, 155, 230, 0.15);
+}
+
+/* Navigation improvements */
+.md-nav__link--active {
+  font-weight: 600;
+}
+
+/* Footer styling */
+.md-footer {
+  background-color: var(--md-primary-fg-color--dark);
+}

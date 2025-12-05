@@ -1,0 +1,145 @@
+site_name: external-dns-unifios-webhook
+site_url: https://unifi-edns.lex.la
+site_author: Aleksei Sviridkin
+site_description: External DNS webhook provider for UniFi OS DNS management
+
+repo_name: lexfrei/external-dns-unifios-webhook
+repo_url: https://github.com/lexfrei/external-dns-unifios-webhook
+edit_uri: edit/master/docs/
+
+copyright: Copyright &copy; 2024-2025 Aleksei Sviridkin
+
+theme:
+  name: material
+  language: en
+  favicon: https://www.ui.com/favicon.ico
+  logo: https://www.ui.com/favicon.ico
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lexfrei/external-dns-unifios-webhook
+  version:
+    provider: mike
+    default: latest
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: lexfrei
+      repo: external-dns-unifios-webhook
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Prerequisites: getting-started/prerequisites.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - Configuration:
+      - configuration/index.md
+      - Environment Variables: configuration/environment.md
+      - UniFi API Setup: configuration/unifi-api.md
+  - Guides:
+      - guides/index.md
+      - external-dns Integration: guides/external-dns.md
+      - Troubleshooting: guides/troubleshooting.md
+      - Monitoring: guides/monitoring.md
+  - Development:
+      - development/index.md
+      - Development Setup: development/setup.md
+      - Architecture: development/architecture.md
+      - Contributing: development/contributing.md
+  - Reference:
+      - reference/index.md
+      - Webhook API: reference/api.md
+      - DNS Record Types: reference/dns-records.md
+      - Security: reference/security.md
