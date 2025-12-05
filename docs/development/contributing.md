@@ -25,7 +25,7 @@ Use descriptive branch names:
 
 Follow semantic commit format:
 
-```
+```text
 type(scope): description
 
 Optional body explaining what and why.
@@ -48,13 +48,13 @@ Co-Authored-By: Your Name <email@example.com>
 
 **Examples:**
 
-```
+```text
 feat(provider): add MX record support
 
 Implement MX record creation and deletion in the UniFi provider.
 ```
 
-```
+```text
 fix(config): handle empty API key gracefully
 
 Return clear error message when API key is not configured.

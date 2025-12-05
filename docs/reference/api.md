@@ -140,7 +140,7 @@ Prometheus metrics endpoint.
 
 **Response:** Prometheus text format
 
-```
+```text
 # HELP external_dns_unifi_records_managed Number of DNS records managed
 # TYPE external_dns_unifi_records_managed gauge
 external_dns_unifi_records_managed 42

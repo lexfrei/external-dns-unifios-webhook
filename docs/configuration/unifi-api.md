@@ -131,7 +131,7 @@ To find your site name:
 
 ### Authentication Failed
 
-```
+```text
 error="authentication failed" status=401
 ```
 
@@ -141,7 +141,7 @@ error="authentication failed" status=401
 
 ### Connection Refused
 
-```
+```text
 error="connection refused"
 ```
 
@@ -151,7 +151,7 @@ error="connection refused"
 
 ### Permission Denied
 
-```
+```text
 error="permission denied" status=403
 ```
 

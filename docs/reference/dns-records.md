@@ -122,7 +122,7 @@ annotations:
 
 external-dns uses TXT records to track ownership:
 
-```
+```text
 _externaldns.app.example.com TXT "heritage=external-dns,external-dns/owner=..."
 ```
 

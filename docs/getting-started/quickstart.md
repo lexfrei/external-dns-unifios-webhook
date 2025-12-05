@@ -66,7 +66,7 @@ kubectl logs -n external-dns-unifi -l app.kubernetes.io/name=external-dns
 
 Look for entries indicating record creation:
 
-```
+```text
 level=info msg="Creating record" record=hello.example.com type=A
 ```
 

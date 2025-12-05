@@ -156,7 +156,7 @@ spec:
 
 The webhook is available as a multi-arch container image:
 
-```
+```text
 ghcr.io/lexfrei/external-dns-unifios-webhook:latest
 ```
 

@@ -8,7 +8,7 @@ Common issues and solutions when using external-dns-unifios-webhook.
 
 **Symptoms:**
 
-```
+```text
 error="connection refused" host="https://192.168.1.1"
 ```
 
@@ -28,7 +28,7 @@ error="connection refused" host="https://192.168.1.1"
 
 **Symptoms:**
 
-```
+```text
 error="x509: certificate signed by unknown authority"
 ```
 
@@ -48,7 +48,7 @@ error="x509: certificate signed by unknown authority"
 
 **Symptoms:**
 
-```
+```text
 error="authentication failed" status=401
 ```
 
@@ -96,7 +96,7 @@ DNS records don't appear in UniFi controller.
 
 **Symptoms:**
 
-```
+```text
 error="wildcard CNAME not supported"
 ```
 
@@ -110,7 +110,7 @@ Use individual A/AAAA records instead of wildcard CNAME.
 
 **Symptoms:**
 
-```
+```text
 error="duplicate CNAME record"
 ```
 

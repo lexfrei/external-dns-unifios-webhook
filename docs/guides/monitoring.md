@@ -8,7 +8,7 @@ The webhook exposes Prometheus metrics on the health server port.
 
 ### Metrics Endpoint
 
-```
+```text
 http://<pod-ip>:8080/metrics
 ```
 
@@ -134,7 +134,7 @@ spec:
 
 ### Liveness
 
-```
+```text
 GET /healthz
 ```
 
@@ -142,7 +142,7 @@ Returns 200 if the webhook process is alive.
 
 ### Readiness
 
-```
+```text
 GET /readyz
 ```
 
