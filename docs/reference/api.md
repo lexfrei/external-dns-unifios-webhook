@@ -121,7 +121,7 @@ Liveness probe. Returns 200 if process is alive.
 **Response:**
 
 ```json
-{"status": "ok"}
+{"status": "ok", "message": "Service is alive"}
 ```
 
 ### GET /readyz
@@ -131,7 +131,7 @@ Readiness probe. Returns 200 if UniFi controller is reachable.
 **Response:**
 
 ```json
-{"status": "ready"}
+{"status": "ok", "message": "Service is ready"}
 ```
 
 ### GET /metrics
@@ -141,9 +141,9 @@ Prometheus metrics endpoint.
 **Response:** Prometheus text format
 
 ```text
-# HELP external_dns_unifi_records_managed Number of DNS records managed
-# TYPE external_dns_unifi_records_managed gauge
-external_dns_unifi_records_managed 42
+# HELP external_dns_unifi_dns_records_managed Number of DNS records managed
+# TYPE external_dns_unifi_dns_records_managed gauge
+external_dns_unifi_dns_records_managed{record_type="A"} 42
 ```
 
 ## Error Responses

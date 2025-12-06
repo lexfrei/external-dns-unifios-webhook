@@ -116,6 +116,7 @@ annotations:
 | CNAME | Yes |
 | TXT | No |
 | MX | Yes |
+| NS | Yes |
 | SRV | Yes |
 
 ## Record Ownership
