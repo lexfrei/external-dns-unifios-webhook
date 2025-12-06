@@ -15,13 +15,13 @@ error="connection refused" host="https://192.168.1.1"
 **Solutions:**
 
 1. Verify the controller URL is correct
-2. Check network connectivity from the pod:
+2. Check network connectivity using a debug container:
 
     ```bash
-    kubectl exec -it <pod> -c webhook -- wget -O- https://192.168.1.1
+    kubectl debug -it <pod> --image=curlimages/curl -- curl -k https://192.168.1.1
     ```
 
-3. Ensure firewall allows HTTPS (443) traffic
+3. Ensure firewall allows HTTPS traffic to UniFi controller
 4. Use IP address instead of hostname
 
 ### TLS Certificate Errors

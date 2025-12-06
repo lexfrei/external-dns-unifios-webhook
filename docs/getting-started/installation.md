@@ -170,9 +170,9 @@ ghcr.io/lexfrei/external-dns-unifios-webhook:latest
 | Tag | Description |
 |-----|-------------|
 | `latest` | Latest stable release |
-| `vX.Y.Z` | Specific version |
-| `X.Y` | Latest patch for major.minor |
-| `X` | Latest minor for major |
+| `X.Y.Z` | Specific version (e.g., `1.2.3`) |
+| `X.Y` | Latest patch for major.minor (e.g., `1.2`) |
+| `X` | Latest minor for major (e.g., `1`) |
 
 !!! tip "Production"
     Always pin to a specific version tag in production to avoid unexpected updates.

@@ -16,10 +16,13 @@ http://<pod-ip>:8080/metrics
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `external_dns_unifi_records_managed` | Gauge | Number of DNS records managed |
-| `external_dns_unifi_operations_total` | Counter | Total DNS operations by type |
-| `external_dns_unifi_operation_duration_seconds` | Histogram | DNS operation latency |
-| `external_dns_unifi_changes_applied` | Counter | Number of changes applied |
+| `external_dns_unifi_dns_records_managed` | Gauge | Number of DNS records managed by type |
+| `external_dns_unifi_dns_operations_total` | Counter | Total DNS operations (labels: operation, status) |
+| `external_dns_unifi_dns_operation_duration_seconds` | Histogram | DNS operation latency |
+| `external_dns_unifi_dns_changes_applied` | Histogram | Changes applied per batch (labels: change_type) |
+| `external_dns_unifi_readiness_cache_hits_total` | Counter | Readiness cache hits |
+| `external_dns_unifi_readiness_cache_misses_total` | Counter | Readiness cache misses |
+| `external_dns_unifi_readiness_cache_age_seconds` | Gauge | Readiness cache age |
 
 ### Scrape Configuration
 
@@ -64,25 +67,25 @@ scrape_configs:
 1. **Records Managed**: Current count of DNS records
 
     ```promql
-    external_dns_unifi_records_managed
+    external_dns_unifi_dns_records_managed
     ```
 
 2. **Operations Rate**: Operations per second
 
     ```promql
-    rate(external_dns_unifi_operations_total[5m])
+    rate(external_dns_unifi_dns_operations_total[5m])
     ```
 
 3. **Operation Latency**: P99 latency
 
     ```promql
-    histogram_quantile(0.99, rate(external_dns_unifi_operation_duration_seconds_bucket[5m]))
+    histogram_quantile(0.99, rate(external_dns_unifi_dns_operation_duration_seconds_bucket[5m]))
     ```
 
 4. **Error Rate**: Failed operations
 
     ```promql
-    rate(external_dns_unifi_operations_total{status="error"}[5m])
+    rate(external_dns_unifi_dns_operations_total{status="error"}[5m])
     ```
 
 ## Alerting
@@ -110,8 +113,8 @@ spec:
 
         - alert: ExternalDNSUniFiHighErrorRate
           expr: |
-            rate(external_dns_unifi_operations_total{status="error"}[5m]) /
-            rate(external_dns_unifi_operations_total[5m]) > 0.1
+            rate(external_dns_unifi_dns_operations_total{status="error"}[5m]) /
+            rate(external_dns_unifi_dns_operations_total[5m]) > 0.1
           for: 10m
           labels:
             severity: warning
@@ -121,7 +124,7 @@ spec:
 
         - alert: ExternalDNSUniFiSlowOperations
           expr: |
-            histogram_quantile(0.99, rate(external_dns_unifi_operation_duration_seconds_bucket[5m])) > 5
+            histogram_quantile(0.99, rate(external_dns_unifi_dns_operation_duration_seconds_bucket[5m])) > 5
           for: 10m
           labels:
             severity: warning

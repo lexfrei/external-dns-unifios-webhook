@@ -20,13 +20,13 @@ Works with any UniFi controller that supports **Site API v2**. This includes Uni
 **Tested with:** UniFi OS 4.3.9, UniFi Network 9.4.19
 
 !!! info "Site API v2"
-    The webhook uses UniFi Site API v2 for DNS management. Check your controller's API documentation for compatibility.
+    The webhook uses UniFi Site API v2 for DNS management.
 
 ### Network Access
 
 The webhook needs network access to your UniFi controller:
 
-- HTTPS access to controller (default port 443)
+- HTTPS access to controller (port 443 for UDM, may vary for self-hosted)
 - Controller must be reachable from the Kubernetes cluster
 - Use IP address instead of hostname (e.g., `https://192.168.1.1` not `https://unifi.local`)
 
@@ -44,16 +44,15 @@ The webhook requires an API key to authenticate with your UniFi controller.
 6. Copy and save the key securely (it's shown only once)
 
 !!! important "API Key Permissions"
-    The API key inherits permissions from the admin user account. Ensure the user has sufficient privileges to manage DNS records.
+    The API key inherits all permissions from the admin user account. There is no granular permission control.
 
 ### Recommended Setup
 
 For production environments, create a dedicated admin user for the webhook:
 
 1. Create a new admin user (e.g., `external-dns-webhook`)
-2. Assign minimal required permissions (DNS management)
-3. Generate an API key for this user
-4. Store the key securely in Kubernetes secrets
+2. Generate an API key for this user
+3. Store the key securely in Kubernetes secrets
 
 ## Kubernetes Requirements
 
@@ -95,7 +94,7 @@ For metrics collection, ensure Prometheus can scrape the webhook's metrics endpo
 
 If using network policies, allow:
 
-- Egress from webhook to UniFi controller (HTTPS/443)
+- Egress from webhook to UniFi controller (HTTPS)
 - Ingress to webhook from external-dns (HTTP/8888)
 - Ingress to health endpoint (HTTP/8080)
 

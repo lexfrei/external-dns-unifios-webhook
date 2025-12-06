@@ -29,20 +29,10 @@ Select the admin user that will be used for API access.
 
 ## API Key Permissions
 
-The API key inherits permissions from the admin user account. The webhook requires:
+The API key inherits all permissions from the admin user account. There is no granular permission control for API keys in UniFi.
 
-- **Read** access to DNS records
-- **Write** access to DNS records
-- Access to the configured site
-
-### Minimal Permissions
-
-For security, create an admin user with minimal required permissions:
-
-1. Create a new admin user
-2. Set role to **Limited Admin**
-3. Enable only DNS-related permissions
-4. Generate API key for this user
+!!! note "Security Consideration"
+    Consider creating a dedicated admin user for the webhook to isolate access and simplify key rotation.
 
 ## Storing the API Key
 
@@ -155,6 +145,6 @@ error="connection refused"
 error="permission denied" status=403
 ```
 
-- Verify admin user has DNS permissions
-- Check site access permissions
+- Verify admin user is active
+- Check site access (if using multi-site)
 - Confirm API key belongs to correct user

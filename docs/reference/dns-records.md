@@ -10,9 +10,6 @@ Supported DNS record types and their behavior in external-dns-unifios-webhook.
 | AAAA | Yes | IPv6 address records |
 | CNAME | Yes | Canonical name records |
 | TXT | Yes | Text records (no TTL support) |
-| MX | Yes | Mail exchange records |
-| NS | Yes | Name server records |
-| SRV | Yes | Service records |
 
 ## Record Details
 
@@ -75,23 +72,6 @@ annotations:
 !!! note "No TTL Support"
     UniFi API does not support TTL for TXT records. TTL annotations are ignored.
 
-### MX Records
-
-Mail exchange records.
-
-```yaml
-# Created via CRD or direct API, not via annotations
-```
-
-### SRV Records
-
-Service location records.
-
-```yaml
-# Created via CRD or direct API
-# Format: _service._protocol.name priority weight port target
-```
-
 ## TTL Behavior
 
 ### Default TTL
@@ -115,8 +95,6 @@ annotations:
 | AAAA | Yes |
 | CNAME | Yes |
 | TXT | No |
-| MX | Yes |
-| SRV | Yes |
 
 ## Record Ownership
 

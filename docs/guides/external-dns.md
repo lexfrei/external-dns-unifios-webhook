@@ -55,14 +55,36 @@ spec:
     - host: app.example.com  # Automatically registered
 ```
 
-### CRDs
+### Gateway API
 
-For Gateway API or custom resources:
+For Gateway API resources, use dedicated sources:
 
 ```yaml
 sources:
-  - crd
+  - gateway-httproute
+  - gateway-grpcroute
+  - gateway-tlsroute
 ```
+
+!!! warning "Non-obvious Hostname Behavior"
+    Gateway API sources have split annotation handling:
+
+    - **Hostnames** are taken from **Routes** (HTTPRoute, TLSRoute spec)
+    - **Targets** (IP addresses) are taken from **Gateway** annotation or status
+
+    This means `external-dns.alpha.kubernetes.io/target` must be set on the Gateway, not on Routes.
+
+For TCPRoute/UDPRoute (which have no hostname in spec), use annotation:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: tcp.example.com
+```
+
+See [external-dns Gateway API documentation](https://kubernetes-sigs.github.io/external-dns/latest/docs/sources/gateway-api/) for details.
 
 ## Domain Filtering
 

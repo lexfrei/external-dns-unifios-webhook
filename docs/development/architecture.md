@@ -92,10 +92,13 @@ Logging and metrics adapters:
 
 Custom Prometheus metrics:
 
-- `external_dns_unifi_records_managed`
-- `external_dns_unifi_operations_total`
-- `external_dns_unifi_operation_duration_seconds`
-- `external_dns_unifi_changes_applied`
+- `external_dns_unifi_dns_records_managed`
+- `external_dns_unifi_dns_operations_total`
+- `external_dns_unifi_dns_operation_duration_seconds`
+- `external_dns_unifi_dns_changes_applied`
+- `external_dns_unifi_readiness_cache_hits_total`
+- `external_dns_unifi_readiness_cache_misses_total`
+- `external_dns_unifi_readiness_cache_age_seconds`
 
 ## Data Flow
 
@@ -158,9 +161,6 @@ This prevents N*API_calls problem during batch deletes.
 | AAAA | AAAA |
 | CNAME | CNAME |
 | TXT | TXT |
-| MX | MX |
-| NS | NS |
-| SRV | SRV |
 
 ## Limitations
 
@@ -190,7 +190,7 @@ if err != nil {
 |---------|---------|
 | `github.com/lexfrei/go-unifi` | UniFi API client |
 | `sigs.k8s.io/external-dns` | external-dns types |
-| `github.com/go-chi/chi/v5` | HTTP router |
+| `net/http` | HTTP server (stdlib) |
 | `github.com/prometheus/client_golang` | Prometheus metrics |
 | `github.com/spf13/viper` | Configuration |
 | `github.com/cockroachdb/errors` | Enhanced errors |
