@@ -21,7 +21,7 @@ error="connection refused" host="https://192.168.1.1"
     kubectl debug -it <pod> --image=curlimages/curl -- curl -k https://192.168.1.1
     ```
 
-3. Ensure firewall allows HTTPS (443) traffic
+3. Ensure firewall allows HTTPS traffic to UniFi controller
 4. Use IP address instead of hostname
 
 ### TLS Certificate Errors

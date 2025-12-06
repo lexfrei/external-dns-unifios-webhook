@@ -87,7 +87,7 @@ spec:
       ports:
         - port: 53
           protocol: UDP
-    # Allow UniFi controller
+    # Allow UniFi controller (adjust port if using self-hosted)
     - to:
         - ipBlock:
             cidr: 192.168.1.1/32

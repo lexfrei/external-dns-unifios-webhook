@@ -26,7 +26,7 @@ Works with any UniFi controller that supports **Site API v2**. This includes Uni
 
 The webhook needs network access to your UniFi controller:
 
-- HTTPS access to controller (default port 443)
+- HTTPS access to controller (port 443 for UDM, may vary for self-hosted)
 - Controller must be reachable from the Kubernetes cluster
 - Use IP address instead of hostname (e.g., `https://192.168.1.1` not `https://unifi.local`)
 
@@ -95,7 +95,7 @@ For metrics collection, ensure Prometheus can scrape the webhook's metrics endpo
 
 If using network policies, allow:
 
-- Egress from webhook to UniFi controller (HTTPS/443)
+- Egress from webhook to UniFi controller (HTTPS)
 - Ingress to webhook from external-dns (HTTP/8888)
 - Ingress to health endpoint (HTTP/8080)
 
