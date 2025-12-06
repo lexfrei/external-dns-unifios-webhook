@@ -4,24 +4,23 @@ Before installing external-dns-unifios-webhook, ensure your environment meets th
 
 ## Version Requirements
 
-| Component | Minimum Version | Notes |
-|-----------|-----------------|-------|
-| external-dns | v0.20.0 | Webhook provider support |
-| UniFi OS | 4.3.9 | API compatibility |
-| UniFi Network | 9.4.19 | DNS management features |
+| Component | Version | Notes |
+|-----------|---------|-------|
+| external-dns | v0.20.0+ | Webhook provider support required |
+| UniFi Controller | Site API v2 | Any modern UniFi controller |
 | Kubernetes | 1.25+ | Recommended |
 | Helm | 3.x | For Helm installation |
 
 ## UniFi Controller Requirements
 
-### Supported Controllers
+### Compatibility
 
-- **UniFi Dream Machine** (UDM, UDM Pro, UDM SE)
-- **UniFi Cloud Key Gen2+**
-- **UniFi Network Application** (self-hosted)
+Works with any UniFi controller that supports **Site API v2**. This includes UniFi Dream Machine series, Cloud Key, and self-hosted UniFi Network Application.
 
-!!! warning "Older Controllers"
-    UniFi Cloud Key Gen1 and older controllers running UniFi Network Application < 9.4.19 are not supported due to API differences.
+**Tested with:** UniFi OS 4.3.9, UniFi Network 9.4.19
+
+!!! info "Site API v2"
+    The webhook uses UniFi Site API v2 for DNS management. Check your controller's API documentation for compatibility.
 
 ### Network Access
 

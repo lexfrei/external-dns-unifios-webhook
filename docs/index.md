@@ -84,17 +84,16 @@ Webhook provider for [external-dns](https://github.com/kubernetes-sigs/external-
 
 ## Requirements
 
-| Component | Minimum Version |
-|-----------|-----------------|
-| external-dns | v0.20.0 |
-| UniFi OS | 4.3.9 |
-| UniFi Network | 9.4.19 |
+| Component | Version | Notes |
+|-----------|---------|-------|
+| external-dns | v0.20.0+ | Webhook provider support required |
+| UniFi Controller | Site API v2 | Any modern UniFi controller |
 
-## Supported UniFi Controllers
+## Compatibility
 
-- UniFi Dream Machine (UDM, UDM Pro, UDM SE)
-- UniFi Cloud Key Gen2+
-- UniFi Network Application (self-hosted)
+Works with any UniFi controller that supports Site API v2, including UniFi Dream Machine series, Cloud Key, and self-hosted UniFi Network Application.
+
+**Tested with:** UniFi OS 4.3.9, UniFi Network 9.4.19
 
 ## License
 
