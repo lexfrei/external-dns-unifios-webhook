@@ -44,16 +44,15 @@ The webhook requires an API key to authenticate with your UniFi controller.
 6. Copy and save the key securely (it's shown only once)
 
 !!! important "API Key Permissions"
-    The API key inherits permissions from the admin user account. Ensure the user has sufficient privileges to manage DNS records.
+    The API key inherits all permissions from the admin user account. There is no granular permission control.
 
 ### Recommended Setup
 
 For production environments, create a dedicated admin user for the webhook:
 
 1. Create a new admin user (e.g., `external-dns-webhook`)
-2. Assign minimal required permissions (DNS management)
-3. Generate an API key for this user
-4. Store the key securely in Kubernetes secrets
+2. Generate an API key for this user
+3. Store the key securely in Kubernetes secrets
 
 ## Kubernetes Requirements
 

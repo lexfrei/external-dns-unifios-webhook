@@ -14,7 +14,7 @@ The UniFi API key grants access to DNS management. Protect it carefully.
 2. Use RBAC to limit secret access
 3. Consider external secret management (Vault, AWS Secrets Manager)
 4. Rotate keys periodically
-5. Use dedicated admin user with minimal permissions
+5. Use dedicated admin user for isolation
 
 **Example:**
 
