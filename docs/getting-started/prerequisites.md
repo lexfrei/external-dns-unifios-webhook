@@ -20,7 +20,7 @@ Works with any UniFi controller that supports **Site API v2**. This includes Uni
 **Tested with:** UniFi OS 4.3.9, UniFi Network 9.4.19
 
 !!! info "Site API v2"
-    The webhook uses UniFi Site API v2 for DNS management. Check your controller's API documentation for compatibility.
+    The webhook uses UniFi Site API v2 for DNS management.
 
 ### Network Access
 

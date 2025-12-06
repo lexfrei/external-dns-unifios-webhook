@@ -161,9 +161,6 @@ This prevents N*API_calls problem during batch deletes.
 | AAAA | AAAA |
 | CNAME | CNAME |
 | TXT | TXT |
-| MX | MX |
-| NS | NS |
-| SRV | SRV |
 
 ## Limitations
 
