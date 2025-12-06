@@ -21,14 +21,12 @@ theme:
     - content.code.annotate
     - content.code.copy
     - content.tabs.link
-    - navigation.expand
     - navigation.footer
     - navigation.indexes
     - navigation.instant
     - navigation.instant.progress
     - navigation.sections
-    - navigation.tabs
-    - navigation.tabs.sticky
+    - navigation.expand
     - navigation.top
     - navigation.tracking
     - search.highlight
@@ -63,6 +61,7 @@ extra:
   version:
     provider: mike
     default: latest
+    alias: true
 
 extra_css:
   - stylesheets/extra.css
