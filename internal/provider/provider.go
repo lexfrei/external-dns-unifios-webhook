@@ -286,7 +286,6 @@ func (p *UniFiProvider) parallelCreate(ctx context.Context, endpoints []*endpoin
 
 // collectErrors aggregates errors from an error channel into a single error.
 func collectErrors(errChan chan error, operation string) error {
-	//nolint:prealloc // Cannot pre-allocate: len(errChan) returns current queue size, not total errors
 	var errs []error
 	for err := range errChan {
 		errs = append(errs, err)
