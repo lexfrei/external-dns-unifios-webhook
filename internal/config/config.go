@@ -11,7 +11,7 @@ import (
 // UniFiConfig contains UniFi controller connection settings.
 type UniFiConfig struct {
 	Host          string `mapstructure:"host"`
-	APIKey        string `mapstructure:"api_key"`
+	APIKey        string `json:"-"                       mapstructure:"api_key"`
 	Site          string `mapstructure:"site"`
 	SkipTLSVerify bool   `mapstructure:"skip_tls_verify"`
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/lexfrei/external-dns-unifios-webhook/api/health"
-	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/dnsmetrics"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -33,7 +33,7 @@ type readinessCache struct {
 
 const readinessCacheTTL = 30 * time.Second
 
-// Server implements the health.ServerInterface for health checks and metrics.
+// Server implements the health.ServerInterface for health checks and dnsmetrics.
 type Server struct {
 	provider       provider.DNSProvider
 	registry       *prometheus.Registry
@@ -104,8 +104,8 @@ func (s *Server) Readiness(w http.ResponseWriter, r *http.Request) {
 	s.writeReadinessResponse(w, isReady)
 }
 
-// Metrics exports Prometheus metrics.
-// GET /metrics.
+// Metrics exports Prometheus dnsmetrics.
+// GET /dnsmetrics.
 func (s *Server) Metrics(w http.ResponseWriter, r *http.Request) {
 	// Use custom prometheus registry with our metrics
 	handler := promhttp.HandlerFor(s.registry, promhttp.HandlerOpts{})
@@ -118,15 +118,15 @@ func (s *Server) getCachedReadiness() (isReady, ok bool) {
 	defer s.readinessCache.mu.RUnlock()
 
 	cacheAge := time.Since(s.readinessCache.checkedAt)
-	metrics.ReadinessCacheAge.Set(cacheAge.Seconds())
+	dnsmetrics.ReadinessCacheAge.Set(cacheAge.Seconds())
 
 	if cacheAge < readinessCacheTTL {
-		metrics.ReadinessCacheHits.Inc()
+		dnsmetrics.ReadinessCacheHits.Inc()
 
 		return s.readinessCache.isReady, true
 	}
 
-	metrics.ReadinessCacheMisses.Inc()
+	dnsmetrics.ReadinessCacheMisses.Inc()
 
 	return false, false
 }

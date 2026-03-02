@@ -1,4 +1,4 @@
-package metrics
+package dnsmetrics
 
 import "github.com/prometheus/client_golang/prometheus"
 

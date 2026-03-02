@@ -10,6 +10,11 @@
       "description": "Automerge non-major updates",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "automerge": true
+    },
+    {
+      "description": "Bump Go version in go.mod",
+      "matchDatasources": ["golang-version"],
+      "rangeStrategy": "bump"
     }
   ]
 }
