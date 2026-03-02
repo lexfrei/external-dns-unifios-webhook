@@ -10,8 +10,6 @@ on:
       - "requirements-docs.txt"
       - "README.md"
       - "SECURITY.md"
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       version:
