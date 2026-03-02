@@ -13,6 +13,9 @@ permissions:
   pull-requests: write
   security-events: write
 
+env:
+  GOTOOLCHAIN: auto
+
 jobs:
   # Security scanning
   security:
