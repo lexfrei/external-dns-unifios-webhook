@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/dnsmetrics"
 	unifi "github.com/lexfrei/go-unifi/api/network"
 	"golang.org/x/sync/semaphore"
 	"sigs.k8s.io/external-dns/endpoint"
@@ -74,7 +74,7 @@ func (p *UniFiProvider) Records(ctx context.Context) ([]*endpoint.Endpoint, erro
 
 	// Update metrics for managed records by type
 	for recordType, count := range recordsByType {
-		metrics.DNSRecordsManaged.WithLabelValues(recordType).Set(float64(count))
+		dnsmetrics.DNSRecordsManaged.WithLabelValues(recordType).Set(float64(count))
 	}
 
 	slog.InfoContext(ctx, "fetched DNS records", "filtered_count", len(endpoints))
@@ -91,15 +91,15 @@ func (p *UniFiProvider) ApplyChanges(ctx context.Context, changes *plan.Changes)
 
 	// Record number of changes
 	if len(changes.Delete) > 0 {
-		metrics.DNSChangesApplied.WithLabelValues("delete").Observe(float64(len(changes.Delete)))
+		dnsmetrics.DNSChangesApplied.WithLabelValues("delete").Observe(float64(len(changes.Delete)))
 	}
 
 	if len(changes.UpdateNew) > 0 {
-		metrics.DNSChangesApplied.WithLabelValues("update").Observe(float64(len(changes.UpdateNew)))
+		dnsmetrics.DNSChangesApplied.WithLabelValues("update").Observe(float64(len(changes.UpdateNew)))
 	}
 
 	if len(changes.Create) > 0 {
-		metrics.DNSChangesApplied.WithLabelValues("create").Observe(float64(len(changes.Create)))
+		dnsmetrics.DNSChangesApplied.WithLabelValues("create").Observe(float64(len(changes.Create)))
 	}
 
 	// Handle deletions
@@ -218,15 +218,15 @@ func (p *UniFiProvider) parallelDeleteWithIndex(ctx context.Context, endpoints [
 
 			deleteErr := p.deleteRecordWithIndex(opCtx, endpointItem, recordIndex)
 			if deleteErr != nil {
-				metrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
+				dnsmetrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
 
 				errChan <- errors.Wrapf(deleteErr, "failed to delete record %s", endpointItem.DNSName)
 
 				return
 			}
 
-			metrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
-			metrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
+			dnsmetrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
+			dnsmetrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
 		}(endpointToDelete)
 	}
 
@@ -266,15 +266,15 @@ func (p *UniFiProvider) parallelCreate(ctx context.Context, endpoints []*endpoin
 
 			createErr := p.createRecord(opCtx, endpointItem)
 			if createErr != nil {
-				metrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
+				dnsmetrics.DNSOperationsTotal.WithLabelValues(operation, "error").Inc()
 
 				errChan <- errors.Wrapf(createErr, "failed to create record %s", endpointItem.DNSName)
 
 				return
 			}
 
-			metrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
-			metrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
+			dnsmetrics.DNSOperationsTotal.WithLabelValues(operation, "success").Inc()
+			dnsmetrics.DNSOperationDuration.WithLabelValues(operation).Observe(time.Since(start).Seconds())
 		}(endpointToCreate)
 	}
 

@@ -17,7 +17,7 @@ import (
 	"github.com/lexfrei/external-dns-unifios-webhook/api/webhook"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/config"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/healthserver"
-	"github.com/lexfrei/external-dns-unifios-webhook/internal/metrics"
+	"github.com/lexfrei/external-dns-unifios-webhook/internal/dnsmetrics"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/middleware"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/observability"
 	"github.com/lexfrei/external-dns-unifios-webhook/internal/provider"
@@ -57,7 +57,7 @@ func run() error {
 	registry := prometheus.NewRegistry()
 
 	// Register custom DNS metrics
-	metrics.Register(registry)
+	dnsmetrics.Register(registry)
 
 	// Create observability components
 	logger := observability.NewSlogAdapter(slog.Default())
