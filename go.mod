@@ -1,6 +1,6 @@
 module github.com/lexfrei/external-dns-unifios-webhook
 
-go 1.26.2
+go 1.26.1
 
 require (
 	github.com/cockroachdb/errors v1.12.0
