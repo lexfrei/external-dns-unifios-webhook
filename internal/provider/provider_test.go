@@ -15,6 +15,14 @@ import (
 	unifi "github.com/lexfrei/go-unifi/api/network"
 )
 
+// Shared test fixtures for DNS record names and target addresses.
+const (
+	testNewDNSName    = "new.example.com"
+	testNewTarget     = "192.168.1.10"
+	testUpdateDNSName = "update.example.com"
+	testUpdateTarget  = "192.168.1.31"
+)
+
 // MockNetworkClient is a mock implementation of unifi.NetworkAPIClient for testing.
 type MockNetworkClient struct {
 	mock.Mock
@@ -261,14 +269,14 @@ func TestApplyChanges_Create(t *testing.T) {
 	ttl := 300
 	createdRecord := &unifi.DNSRecord{
 		UnderscoreId: "new-record-id",
-		Key:          "new.example.com",
-		Value:        "192.168.1.10",
+		Key:          testNewDNSName,
+		Value:        testNewTarget,
 		RecordType:   unifi.DNSRecordRecordTypeA,
 		Ttl:          &ttl,
 	}
 
 	mockClient.On("CreateDNSRecord", mock.Anything, unifi.Site("default"), mock.MatchedBy(func(input *unifi.DNSRecordInput) bool {
-		return input.Key == "new.example.com" && input.Value == "192.168.1.10"
+		return input.Key == testNewDNSName && input.Value == testNewTarget
 	})).Return(createdRecord, nil)
 
 	provider := New(mockClient, "default", domainFilter)
@@ -276,9 +284,9 @@ func TestApplyChanges_Create(t *testing.T) {
 	changes := &plan.Changes{
 		Create: []*endpoint.Endpoint{
 			{
-				DNSName:    "new.example.com",
+				DNSName:    testNewDNSName,
 				RecordType: endpoint.RecordTypeA,
-				Targets:    []string{"192.168.1.10"},
+				Targets:    []string{testNewTarget},
 			},
 		},
 	}
@@ -332,14 +340,14 @@ func TestApplyChanges_Update(t *testing.T) {
 	domainFilter := endpoint.DomainFilter{}
 
 	existingRecords := []unifi.DNSRecord{
-		createMockDNSRecord("update.example.com", "192.168.1.30", unifi.DNSRecordRecordTypeA),
+		createMockDNSRecord(testUpdateDNSName, "192.168.1.30", unifi.DNSRecordRecordTypeA),
 	}
 
 	ttl := 300
 	newRecord := &unifi.DNSRecord{
 		UnderscoreId: "updated-record-id",
-		Key:          "update.example.com",
-		Value:        "192.168.1.31",
+		Key:          testUpdateDNSName,
+		Value:        testUpdateTarget,
 		RecordType:   unifi.DNSRecordRecordTypeA,
 		Ttl:          &ttl,
 	}
@@ -351,7 +359,7 @@ func TestApplyChanges_Update(t *testing.T) {
 		Return(nil)
 
 	mockClient.On("CreateDNSRecord", mock.Anything, unifi.Site("default"), mock.MatchedBy(func(input *unifi.DNSRecordInput) bool {
-		return input.Key == "update.example.com" && input.Value == "192.168.1.31"
+		return input.Key == testUpdateDNSName && input.Value == testUpdateTarget
 	})).Return(newRecord, nil)
 
 	provider := New(mockClient, "default", domainFilter)
@@ -359,16 +367,16 @@ func TestApplyChanges_Update(t *testing.T) {
 	changes := &plan.Changes{
 		UpdateOld: []*endpoint.Endpoint{
 			{
-				DNSName:    "update.example.com",
+				DNSName:    testUpdateDNSName,
 				RecordType: endpoint.RecordTypeA,
 				Targets:    []string{"192.168.1.30"},
 			},
 		},
 		UpdateNew: []*endpoint.Endpoint{
 			{
-				DNSName:    "update.example.com",
+				DNSName:    testUpdateDNSName,
 				RecordType: endpoint.RecordTypeA,
-				Targets:    []string{"192.168.1.31"},
+				Targets:    []string{testUpdateTarget},
 			},
 		},
 	}

@@ -16,6 +16,12 @@ const (
 	// maxRequestBodySize limits the maximum size of HTTP request body to prevent memory exhaustion.
 	// 5MB allows handling ~25,000 DNS records in a single request (observed: 20k records in production).
 	maxRequestBodySize = 5 << 20 // 5MB
+
+	// errorKey is the JSON field used to convey error messages in HTTP responses.
+	errorKey = "error"
+
+	// msgInvalidRequestBody is the error message returned for malformed request bodies.
+	msgInvalidRequestBody = "invalid request body"
 )
 
 // Server implements the webhook.ServerInterface for external-dns webhook protocol.
@@ -57,10 +63,10 @@ func (s *Server) GetRecords(w http.ResponseWriter, r *http.Request, _ webhook.Ge
 	// Fetch records from provider
 	endpoints, err := s.provider.Records(r.Context())
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get records", "error", err)
+		slog.ErrorContext(r.Context(), "failed to get records", errorKey, err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{errorKey: err.Error()})
 
 		return
 	}
@@ -93,15 +99,15 @@ func (s *Server) SetRecords(w http.ResponseWriter, r *http.Request, _ webhook.Se
 			slog.WarnContext(r.Context(), "request body too large", "limit_bytes", maxRequestBodySize)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusRequestEntityTooLarge)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "request body too large"})
+			_ = json.NewEncoder(w).Encode(map[string]string{errorKey: "request body too large"})
 
 			return
 		}
 
-		slog.ErrorContext(r.Context(), "failed to decode changes", "error", err)
+		slog.ErrorContext(r.Context(), "failed to decode changes", errorKey, err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid request body"})
+		_ = json.NewEncoder(w).Encode(map[string]string{errorKey: msgInvalidRequestBody})
 
 		return
 	}
@@ -112,10 +118,10 @@ func (s *Server) SetRecords(w http.ResponseWriter, r *http.Request, _ webhook.Se
 	// Apply changes using provider
 	err = s.provider.ApplyChanges(r.Context(), planChanges)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to apply changes", "error", err)
+		slog.ErrorContext(r.Context(), "failed to apply changes", errorKey, err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{errorKey: err.Error()})
 
 		return
 	}
@@ -132,10 +138,10 @@ func (s *Server) AdjustRecords(w http.ResponseWriter, r *http.Request, _ webhook
 
 	err := json.NewDecoder(r.Body).Decode(&endpoints)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to bind endpoints", "error", err)
+		slog.ErrorContext(r.Context(), "failed to bind endpoints", errorKey, err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid request body"})
+		_ = json.NewEncoder(w).Encode(map[string]string{errorKey: msgInvalidRequestBody})
 
 		return
 	}
@@ -149,10 +155,10 @@ func (s *Server) AdjustRecords(w http.ResponseWriter, r *http.Request, _ webhook
 	// Provider's AdjustEndpoints (currently just returns the same endpoints)
 	adjusted, err := s.provider.AdjustEndpoints(externalEndpoints)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to adjust endpoints", "error", err)
+		slog.ErrorContext(r.Context(), "failed to adjust endpoints", errorKey, err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{errorKey: err.Error()})
 
 		return
 	}
@@ -305,7 +311,7 @@ func (s *Server) decodeChanges(r *http.Request) (*webhook.Changes, error) {
 	err := decoder.Decode(&changes)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to decode changes",
-			"error", err,
+			errorKey, err,
 			"content_type", r.Header.Get("Content-Type"))
 
 		return nil, errors.Wrap(err, "failed to decode changes")
