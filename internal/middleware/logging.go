@@ -26,7 +26,6 @@ func Logging(next http.Handler) http.Handler {
 
 		defer func() {
 			if err := recover(); err != nil {
-				//nolint:gosec // G706: slog uses structured fields, not string interpolation — no log injection risk
 				slog.Error("panic recovered",
 					"error", fmt.Sprintf("%v", err),
 					"stack", string(debug.Stack()),
