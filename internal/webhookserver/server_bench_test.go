@@ -10,6 +10,13 @@ import (
 	"sigs.k8s.io/external-dns/endpoint"
 )
 
+// Benchmark sub-test names by endpoint count.
+const (
+	test10Endpoints  = "10_endpoints"
+	test50Endpoints  = "50_endpoints"
+	test100Endpoints = "100_endpoints"
+)
+
 // generateWebhookEndpoints creates a slice of webhook endpoints for benchmarking.
 func generateWebhookEndpoints(count int) webhook.Endpoints {
 	endpoints := make(webhook.Endpoints, count)
@@ -56,9 +63,9 @@ func BenchmarkConvertToWebhookEndpoint(b *testing.B) {
 		name  string
 		count int
 	}{
-		{"10_endpoints", 10},
-		{"50_endpoints", 50},
-		{"100_endpoints", 100},
+		{test10Endpoints, 10},
+		{test50Endpoints, 50},
+		{test100Endpoints, 100},
 	}
 
 	for _, bm := range benchmarks {
@@ -82,9 +89,9 @@ func BenchmarkConvertFromWebhookEndpoint(b *testing.B) {
 		name  string
 		count int
 	}{
-		{"10_endpoints", 10},
-		{"50_endpoints", 50},
-		{"100_endpoints", 100},
+		{test10Endpoints, 10},
+		{test50Endpoints, 50},
+		{test100Endpoints, 100},
 	}
 
 	for _, bm := range benchmarks {
@@ -125,9 +132,9 @@ func BenchmarkJSONEncoder(b *testing.B) {
 		name  string
 		count int
 	}{
-		{"10_endpoints", 10},
-		{"50_endpoints", 50},
-		{"100_endpoints", 100},
+		{test10Endpoints, 10},
+		{test50Endpoints, 50},
+		{test100Endpoints, 100},
 	}
 
 	for _, bench := range benchmarks {
@@ -151,9 +158,9 @@ func BenchmarkJSONDecoder(b *testing.B) {
 		name  string
 		count int
 	}{
-		{"10_endpoints", 10},
-		{"50_endpoints", 50},
-		{"100_endpoints", 100},
+		{test10Endpoints, 10},
+		{test50Endpoints, 50},
+		{test100Endpoints, 100},
 	}
 
 	for _, bench := range benchmarks {
