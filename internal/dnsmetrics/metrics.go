@@ -4,6 +4,11 @@ import "github.com/prometheus/client_golang/prometheus"
 
 const namespace = "external_dns_unifi"
 
+// Metric label keys.
+const (
+	labelOperation = "operation"
+)
+
 //nolint:gochecknoglobals // Prometheus metrics must be global
 var (
 	// DNSOperationsTotal tracks the total number of DNS operations (create/update/delete).
@@ -13,7 +18,7 @@ var (
 			Name:      "dns_operations_total",
 			Help:      "Total number of DNS operations",
 		},
-		[]string{"operation", "status"}, // operation: create/update/delete, status: success/error
+		[]string{labelOperation, "status"}, // operation: create/update/delete, status: success/error
 	)
 
 	// DNSOperationDuration tracks the duration of DNS operations.
@@ -24,7 +29,7 @@ var (
 			Help:      "Duration of DNS operations in seconds",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"operation"}, // operation: create/update/delete
+		[]string{labelOperation}, // operation: create/update/delete
 	)
 
 	// DNSRecordsManaged tracks the number of DNS records currently managed by type.
