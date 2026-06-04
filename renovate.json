@@ -1,20 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "platformAutomerge": true,
-  "automergeStrategy": "squash",
-  "packageRules": [
-    {
-      "description": "Automerge all updates including major",
-      "matchUpdateTypes": ["major", "minor", "patch", "pin", "digest"],
-      "automerge": true
-    },
-    {
-      "description": "Bump Go version in go.mod",
-      "matchDatasources": ["golang-version"],
-      "rangeStrategy": "bump"
-    }
-  ]
+  "extends": ["github>lexfrei/renovate-config"]
 }

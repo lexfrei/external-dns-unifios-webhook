@@ -8,6 +8,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Metric label keys.
+const (
+	labelMethod    = "method"
+	labelPath      = "path"
+	labelEndpoint  = "endpoint"
+	labelOperation = "operation"
+)
+
 // PrometheusRecorder implements observability.MetricsRecorder using Prometheus.
 type PrometheusRecorder struct {
 	httpRequests         *prometheus.CounterVec
@@ -29,7 +37,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Name:      "unifi_api_requests_total",
 				Help:      "Total number of UniFi API HTTP requests",
 			},
-			[]string{"method", "path", "status_code"},
+			[]string{labelMethod, labelPath, "status_code"},
 		),
 		httpDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -38,7 +46,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Help:      "Duration of UniFi API HTTP requests in seconds",
 				Buckets:   prometheus.DefBuckets,
 			},
-			[]string{"method", "path"},
+			[]string{labelMethod, labelPath},
 		),
 		retries: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -46,7 +54,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Name:      "unifi_api_retries_total",
 				Help:      "Total number of UniFi API retry attempts",
 			},
-			[]string{"endpoint"},
+			[]string{labelEndpoint},
 		),
 		rateLimits: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -54,7 +62,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Name:      "unifi_api_rate_limits_total",
 				Help:      "Total number of UniFi API rate limit events",
 			},
-			[]string{"endpoint"},
+			[]string{labelEndpoint},
 		),
 		errors: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -62,7 +70,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Name:      "unifi_api_errors_total",
 				Help:      "Total number of UniFi API errors",
 			},
-			[]string{"operation", "error_type"},
+			[]string{labelOperation, "error_type"},
 		),
 		contextCancellations: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -70,7 +78,7 @@ func NewPrometheusRecorder(registry *prometheus.Registry, namespace string) *Pro
 				Name:      "unifi_api_context_cancellations_total",
 				Help:      "Total number of UniFi API context cancellations",
 			},
-			[]string{"operation"},
+			[]string{labelOperation},
 		),
 	}
 
