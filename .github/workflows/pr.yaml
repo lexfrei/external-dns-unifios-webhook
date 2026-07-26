@@ -128,7 +128,13 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ttl.sh/external-dns-unifios,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=build-${{ matrix.arch }}
-          cache-to: type=gha,scope=build-${{ matrix.arch }},mode=max
+          # ignore-error keeps a cache-export failure from failing the build.
+          # The GitHub Actions cache backend answers "failed to reserve cache"
+          # when several builds push the same scope at once, which is exactly
+          # what a batch of dependency PRs does, and every one of them then went
+          # red on an image that had already been built and pushed. The cache is
+          # an optimisation; it must not be able to gate the merge.
+          cache-to: type=gha,scope=build-${{ matrix.arch }},mode=max,ignore-error=true
           build-args: |
             VERSION=pr-${{ github.event.pull_request.number }}
             REVISION=${{ github.event.pull_request.head.sha }}
