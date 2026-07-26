@@ -3,7 +3,7 @@ module github.com/lexfrei/external-dns-unifios-webhook
 go 1.26.5
 
 require (
-	github.com/cockroachdb/errors v1.13.0
+	github.com/cockroachdb/errors v1.14.0
 	github.com/getkin/kin-openapi v0.138.0
 	github.com/lexfrei/go-unifi v0.3.1
 	github.com/oapi-codegen/runtime v1.4.0
