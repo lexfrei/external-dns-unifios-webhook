@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>lexfrei/renovate-config"]
+  "extends": ["github>lexfrei/renovate-config"],
+  "packageRules": [
+    {
+      "description": "Hold kin-openapi at 0.138.x. Every later release requires oasdiff/yaml v0.1.1, which brings in go-openapi/swag/loading, whose test imports github.com/go-openapi/testify/v2/assert/yaml - a package that module does not contain. go mod tidy fails on the bump, so Renovate cannot regenerate go.sum and the PR arrives as a go.mod-only change that CI rejects for a missing go.sum entry. Downgrading oasdiff/yaml is not possible, kin-openapi requires that exact version. Remove this rule once go mod tidy succeeds with a newer kin-openapi.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/getkin/kin-openapi"],
+      "allowedVersions": "<0.139.0"
+    }
+  ]
 }
