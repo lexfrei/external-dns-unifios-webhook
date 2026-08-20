@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/cockroachdb/errors v1.14.0
-	github.com/getkin/kin-openapi v0.138.0
+	github.com/getkin/kin-openapi v0.144.0
 	github.com/lexfrei/go-unifi v0.3.1
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/prometheus/client_golang v1.24.1
