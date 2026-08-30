@@ -5,9 +5,11 @@ linters:
   disable:
     - depguard
     - exhaustruct
+    - exhaustruct_v5
     - gochecknoinits
     - nonamedreturns
     - wsl
+    - wsl_v5
     - lll
     - godoclint # False positive with doc.go pattern
     - errchkjson # Examples and test code don't need strict JSON marshaling checks
